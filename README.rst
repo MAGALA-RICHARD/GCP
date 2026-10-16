@@ -1,32 +1,31 @@
 GCP Pixel Picker
 ================
 
-GCP Pixel Picker is a cross-platform desktop utility for selecting Ground
-Control Point (GCP) pixel locations from RGB and multispectral imagery and
-exporting the resulting observations to text files.
+GCP Pixel Picker is a desktop utility for selecting Ground Control Point (GCP)
+pixel locations from RGB and multispectral imagery and exporting the resulting
+observations to text files.
 
-The viewer preserves source-image geometry during normal use. Images open at
-100% scale, where one source raster pixel maps to one displayed image pixel.
-Resizing the application window or dragging the divider between the image viewer
-and information panel changes only the visible workspace; it does not silently
-rescale the source image.
+The viewer is designed to preserve image geometry during normal use. Images are
+opened at their original display scale (100%), where one source-image pixel maps
+to one displayed image pixel. Resizing the application window or dragging the
+separator between the image viewer and information panel does not automatically
+rescale the image.
 
 Features
 --------
 
 * Open a directory containing JPG, JPEG, PNG, TIF, or TIFF images.
-* Browse images with Previous and Next controls.
-* Select a GCP by clicking directly on the source image.
-* Keep one saved observation per image; adding again replaces that image's
-  previous pixel location.
+* Browse images in the selected directory with Previous and Next controls.
+* Select a GCP by clicking directly on the image.
+* Store one active observation per image; adding a new point for the same image
+  updates the previously stored pixel location.
 * Enter optional X, Y, Z, label, and CRS information.
-* Export all observations or export by image-file extension.
-* Read multispectral TIFF files with Rasterio and NumPy.
+* Export all observations or export records by image-file extension.
 * Inspect image metadata from the right-click context menu.
 * Zoom with the mouse wheel, toolbar buttons, or keyboard.
-* Pan with the middle mouse button.
-* Resize the image and information panels with the draggable divider.
-* Use native application packaging for Windows, macOS, and Linux.
+* Pan the image with the middle mouse button.
+* Drag the divider between the image viewer and the information panel.
+* Use a right-click context menu for common image-viewer commands.
 
 Keyboard shortcuts
 ------------------
@@ -47,10 +46,6 @@ F                   Fit image to the viewer
 I                   Show image metadata
 ==================  ========================================
 
-On macOS, Tkinter receives the Control-key shortcuts above as written. If you
-later prefer Command-key equivalents, they can be added without changing the
-underlying workflow.
-
 Mouse controls
 --------------
 
@@ -63,208 +58,161 @@ Middle-button drag  Pan the image
 Right click         Open the image context menu
 ==================  ========================================
 
+Typical workflow
+----------------
+
+1. Press ``Ctrl+O`` or click ``Open Folder`` and select an image directory.
+2. Click the center of the GCP in the displayed image.
+3. Enter X, Y, Z, label, and CRS values as needed.
+4. Press ``Ctrl+Shift+A`` to save/update the current image observation, or
+   ``Ctrl+Shift+N`` to save/update it and immediately move to the next image.
+5. Use ``Ctrl+N`` and ``Ctrl+P`` to navigate through the folder.
+6. Press ``Ctrl+E`` to export the observations.
+
 Observation replacement behavior
 --------------------------------
 
-Each image has one saved observation. If a point is wrong, click the correct
-location and add the observation again. The existing record for that image is
-replaced by the latest pixel location rather than creating a duplicate.
+Each image has one saved observation. If the selected point for an image is
+wrong, click the correct location and add the observation again. The existing
+record for that image is replaced with the latest pixel location instead of
+creating a duplicate image record.
 
-Requirements for source development
------------------------------------
+Image display behavior
+----------------------
 
-* Python 3.12 or newer recommended.
-* Tk/Tkinter supplied by the Python installation or operating system.
-* Pillow.
-* NumPy.
-* Rasterio.
+The application separates image scale from panel size. Dragging the divider,
+resizing the window, or changing the width of the information panel only changes
+the visible viewing area; it does not change the current image zoom.
 
-Install the Python dependencies with::
+When an image is first loaded it is shown at 100% scale. The ``Fit`` command is
+explicit and only rescales the display when requested. The ``100%`` command
+returns the image to its original display scale.
 
-    python -m pip install -r requirements.txt
+Image metadata
+--------------
+
+Right-click inside the image and choose ``Image metadata`` (or press ``I``) to
+view information including:
+
+* file name and path;
+* raster width and height;
+* band names or band count;
+* file type and file size;
+* current zoom level;
+* currently selected pixel; and
+* image position within the opened directory.
+
+
+Download a release
+------------------
+
+Prebuilt application packages are published from the GitHub ``Releases`` tab:
+
+https://github.com/MAGALA-RICHARD/GCP/releases
+
+Windows
+~~~~~~~
+
+Windows users should normally download the latest Windows executable or ZIP
+from the most recent release. No Python installation is required for the
+prebuilt Windows application.
+
+Typical release assets include::
+
+    GCPPixelPicker.exe
+    GCPPixelPicker-Windows-x64.zip
+
+macOS
+~~~~~
+
+A prebuilt macOS package may be available in the ``Releases`` tab. However,
+macOS security, signing/notarization requirements, processor architecture
+(Apple Silicon versus Intel), and native geospatial dependencies such as GDAL
+and Rasterio can affect portability.
+
+If the downloadable macOS application does not run correctly on a particular
+Mac, build GCP Pixel Picker from source on that Mac using the instructions
+below. Building locally produces an application matched to the machine's
+architecture and installed native libraries.
+
+Linux
+~~~~~
+
+When available, Linux builds are published in the ``Releases`` tab, typically
+as a compressed archive such as::
+
+    GCPPixelPicker-Linux-x86_64.tar.gz
+
+Users can also run or build the application directly from source.
+
+Requirements
+------------
+
+Prebuilt release binaries include the required Python runtime and packaged
+dependencies. Users building from source should use Python 3.12 and install the
+project requirements::
+
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+
+The main Python dependencies include Pillow, NumPy, and Rasterio. Rasterio
+depends on GDAL, so macOS and Linux source builds may require the appropriate
+native GDAL libraries to be installed first.
 
 Running from source
 -------------------
 
-Keep the project files together, then run::
+Clone or download the repository, install the requirements, and run::
 
     python main.py
 
-On Linux, if Tkinter is not installed by the distribution, install the Tk
-package first. Examples::
+On Windows, the application can also be started from an IDE such as PyCharm or
+with the configured project interpreter.
 
-    # Ubuntu / Debian
-    sudo apt install python3-tk
+On macOS, if Rasterio cannot be installed because GDAL is missing, install GDAL
+first (for example with Homebrew), then install the Python requirements again::
 
-    # Fedora
-    sudo dnf install python3-tkinter
+    brew install gdal
+    pip install -r requirements.txt
 
-    # Arch Linux
-    sudo pacman -S tk
+Building packaged applications
+------------------------------
 
-Platform-specific builds
-------------------------
-
-PyInstaller produces binaries for the operating system on which it runs. Build
-Windows on Windows, macOS on macOS, and Linux on Linux. PyInstaller is not a
-cross-compiler.
-
-Windows executable
-~~~~~~~~~~~~~~~~~~
-
-From Command Prompt::
-
-    build_windows.bat
-
-Or from PowerShell::
-
-    Set-ExecutionPolicy -Scope Process Bypass
-    .\build_windows.ps1
-
-The result is::
-
-    dist\GCPPixelPicker.exe
-
-The Windows build uses ``GCPPixelPicker.spec`` and embeds ``app_icon.ico``.
-
-macOS application
-~~~~~~~~~~~~~~~~~
-
-Open Terminal in the project directory and run::
-
-    chmod +x build_macos.sh
-    ./build_macos.sh
-
-The result is::
-
-    dist/GCP Pixel Picker.app
-
-The macOS build uses ``GCPPixelPicker-macos.spec`` and ``app_icon.icns``.
-
-For local testing, launch it with::
-
-    open "dist/GCP Pixel Picker.app"
-
-Unsigned applications distributed outside the Mac App Store may trigger
-Gatekeeper. For public distribution, sign the app with an Apple Developer ID
-and optionally notarize it. The supplied build script intentionally does not
-insert someone else's signing identity.
-
-Linux executable
-~~~~~~~~~~~~~~~~
-
-Open a terminal in the project directory and run::
-
-    chmod +x build_linux.sh
-    ./build_linux.sh
-
-The result is::
-
-    dist/GCPPixelPicker
-
-Run it with::
-
-    ./dist/GCPPixelPicker
-
-Linux binaries are sensitive to the distribution and system libraries used for
-the build. For broad distribution, build on the oldest Linux distribution you
-intend to support, or provide separate builds for major distribution families.
-
-Executable architecture
------------------------
-
-The generated program architecture follows the Python interpreter used during
-the build. For example, an ARM64 Python installation produces an ARM64-targeted
-build where PyInstaller and the dependencies support it. Build separately on
-Intel/AMD64 and ARM64 machines when you need native packages for both.
-
-Manual PyInstaller builds
--------------------------
+Platform-specific PyInstaller build files and GitHub Actions workflows are
+included in the project. Native packages should be built on the operating
+system they target.
 
 Windows::
 
-    py -3.12 -m venv .venv
-    .venv\Scripts\activate
-    python -m pip install -r requirements.txt
     pyinstaller --clean --noconfirm GCPPixelPicker.spec
 
 macOS::
 
-    python3 -m venv .venv-macos
-    source .venv-macos/bin/activate
-    python -m pip install -r requirements.txt
     pyinstaller --clean --noconfirm GCPPixelPicker-macos.spec
 
 Linux::
 
-    python3 -m venv .venv-linux
-    source .venv-linux/bin/activate
-    python -m pip install -r requirements.txt
     pyinstaller --clean --noconfirm GCPPixelPicker-linux.spec
 
-Ruff formatting and linting
----------------------------
-
-The included ``pyproject.toml`` configures Ruff for Python 3.12 and a compact
-120-character line length::
-
-    ruff format main.py helpers.py
-    ruff check --fix main.py helpers.py
-    ruff check main.py helpers.py
+Release builds created from version tags can be attached automatically to the
+GitHub ``Releases`` page by the repository workflows.
 
 Project files
 -------------
 
 ``main.py``
-    Tkinter GUI, viewer, navigation, zoom/pan, context menu, shortcuts,
-    metadata, records, and export workflow.
+    Tkinter user interface, navigation, image interaction, shortcuts, metadata,
+    record-management workflow, and export dialog.
 
 ``helpers.py``
-    Image/raster loading, natural sorting, record creation/replacement,
-    grouping, formatting, and export.
-
-``app_icon.png``
-    Cross-platform runtime icon asset.
-
-``app_icon.ico``
-    Windows application icon.
-
-``app_icon.icns``
-    macOS application icon.
-
-``GCPPixelPicker.spec``
-    Windows PyInstaller configuration.
-
-``GCPPixelPicker-macos.spec``
-    macOS ``.app`` PyInstaller configuration.
-
-``GCPPixelPicker-linux.spec``
-    Linux executable PyInstaller configuration.
-
-``build_windows.bat`` / ``build_windows.ps1``
-    One-command Windows build scripts.
-
-``build_macos.sh``
-    One-command macOS build script.
-
-``build_linux.sh``
-    One-command Linux build script.
-
-``requirements.txt``
-    Runtime, development, and build dependencies.
-
-``pyproject.toml``
-    Project metadata and Ruff configuration.
+    Image discovery/loading and record creation, grouping, replacement,
+    formatting, removal, sorting, and export utilities.
 
 Notes for reviewers
 -------------------
 
-The viewer intentionally separates source-image coordinates from screen
-presentation. Pixel coordinates are calculated against the original raster
-using the active zoom and view offsets. Panel resizing does not alter source
-width, source height, or the selected source pixel coordinate.
-
-For TIFF imagery, Rasterio supplies the original raster width, height, and band
-metadata. A display composite may be contrast-stretched for visualization, but
-its width and height remain identical to the source raster, so click coordinates
-remain in source-pixel space.
+The viewer intentionally distinguishes between source-image coordinates and
+screen presentation. Pixel coordinates are computed against the source raster
+using the current zoom and view offsets, while panel resizing does not alter the
+underlying source dimensions. This preserves consistent coordinate selection
+across the image workflow.
