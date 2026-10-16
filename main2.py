@@ -1,12 +1,14 @@
-import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
-from pathlib import Path
-from PIL import Image, ImageTk
 import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
 import numpy as np
+from PIL import Image, ImageTk
 
 try:
     import rasterio
+
     RASTERIO_AVAILABLE = True
 except ImportError:
     RASTERIO_AVAILABLE = False
@@ -75,16 +77,8 @@ class GCPPicker:
         self.label_var = tk.StringVar()
         self.crs_var = tk.StringVar(value="EPSG:4326")
 
-        for var in (
-            self.x_var,
-            self.y_var,
-            self.z_var,
-            self.label_var
-        ):
-            var.trace_add(
-                "write",
-                lambda *_: self.update_description()
-            )
+        for var in (self.x_var, self.y_var, self.z_var, self.label_var):
+            var.trace_add("write", lambda *_: self.update_description())
 
         self.build_ui()
         self.bind_shortcuts()
@@ -93,13 +87,7 @@ class GCPPicker:
     # UI
     # ==========================================================
 
-    def make_button(
-        self,
-        parent,
-        text,
-        command,
-        color="#374151"
-    ):
+    def make_button(self, parent, text, command, color="#374151"):
         return tk.Button(
             parent,
             text=text,
@@ -114,15 +102,10 @@ class GCPPicker:
             padx=12,
             pady=6,
             font=("Segoe UI", 9, "bold"),
-            cursor="hand2"
+            cursor="hand2",
         )
 
-    def make_entry(
-        self,
-        parent,
-        variable,
-        width=18
-    ):
+    def make_entry(self, parent, variable, width=18):
         return tk.Entry(
             parent,
             textvariable=variable,
@@ -134,23 +117,12 @@ class GCPPicker:
             selectforeground="white",
             relief="flat",
             bd=0,
-            font=("Segoe UI", 10)
+            font=("Segoe UI", 10),
         )
 
-    def form_row(
-        self,
-        parent,
-        title,
-        variable
-    ):
-        row = tk.Frame(
-            parent,
-            bg=self.PANEL,
-            highlightbackground='green')
-        row.pack(
-            fill="x",
-            pady=3
-        )
+    def form_row(self, parent, title, variable):
+        row = tk.Frame(parent, bg=self.PANEL, highlightbackground="green")
+        row.pack(fill="x", pady=3)
 
         tk.Label(
             row,
@@ -159,176 +131,61 @@ class GCPPicker:
             anchor="w",
             bg=self.PANEL,
             fg="#e5e7eb",
-            font=("Segoe UI", 9, "bold")
+            font=("Segoe UI", 9, "bold"),
         ).pack(side="left")
 
-        self.make_entry(
-            row,
-            variable
-        ).pack(
-            side="left",
-            fill="x",
-            expand=True,
-            ipady=5
-        )
+        self.make_entry(row, variable).pack(side="left", fill="x", expand=True, ipady=5)
 
     def build_ui(self):
-        toolbar = tk.Frame(
-            self.root,
-            bg=self.PANEL,
-            height=56
-        )
+        toolbar = tk.Frame(self.root, bg=self.PANEL, height=56)
         toolbar.pack(fill="x")
         toolbar.pack_propagate(False)
 
-        self.open_button = self.make_button(
-            toolbar,
-            "Open Image",
-            self.open_image,
-            self.BLUE
-        )
-        self.open_button.pack(
-            side="left",
-            padx=(10, 4),
-            pady=9
-        )
+        self.open_button = self.make_button(toolbar, "Open Image", self.open_image, self.BLUE)
+        self.open_button.pack(side="left", padx=(10, 4), pady=9)
 
-        self.prev_button = self.make_button(
-            toolbar,
-            "◀ Previous",
-            self.previous_image
-        )
-        self.prev_button.pack(
-            side="left",
-            padx=4,
-            pady=9
-        )
+        self.prev_button = self.make_button(toolbar, "◀ Previous", self.previous_image)
+        self.prev_button.pack(side="left", padx=4, pady=9)
 
-        self.next_button = self.make_button(
-            toolbar,
-            "Next ▶",
-            self.next_image
-        )
-        self.next_button.pack(
-            side="left",
-            padx=4,
-            pady=9
-        )
+        self.next_button = self.make_button(toolbar, "Next ▶", self.next_image)
+        self.next_button.pack(side="left", padx=4, pady=9)
 
-        self.add_button = self.make_button(
-            toolbar,
-            "+ Add",
-            self.add_observation,
-            self.GREEN
-        )
-        self.add_button.pack(
-            side="left",
-            padx=(14, 4),
-            pady=9
-        )
+        self.add_button = self.make_button(toolbar, "+ Add", self.add_observation, self.GREEN)
+        self.add_button.pack(side="left", padx=(14, 4), pady=9)
 
         self.add_next_button = self.make_button(
-            toolbar,
-            "+ Add & Next",
-            self.add_and_next,
-            "#047857"
+            toolbar, "+ Add & Next", self.add_and_next, "#047857"
         )
-        self.add_next_button.pack(
-            side="left",
-            padx=4,
-            pady=9
+        self.add_next_button.pack(side="left", padx=4, pady=9)
+
+        self.export_button = self.make_button(toolbar, "Export TXT", self.export_txt, self.PURPLE)
+        self.export_button.pack(side="left", padx=(14, 4), pady=9)
+
+        self.make_button(toolbar, "Fit to current window", self.fit_image).pack(
+            side="left", padx=(14, 4), pady=9
         )
 
-        self.export_button = self.make_button(
-            toolbar,
-            "Export TXT",
-            self.export_txt,
-            self.PURPLE
-        )
-        self.export_button.pack(
-            side="left",
-            padx=(14, 4),
-            pady=9
-        )
-
-        self.make_button(
-            toolbar,
-            "Fit to current window",
-            self.fit_image
-        ).pack(
-            side="left",
-            padx=(14, 4),
-            pady=9
-        )
-
-        self.make_button(
-            toolbar,
-            "100%",
-            self.actual_size
-        ).pack(
-            side="left",
-            padx=4,
-            pady=9
-        )
+        self.make_button(toolbar, "100%", self.actual_size).pack(side="left", padx=4, pady=9)
 
         self.zoom_label = tk.Label(
-            toolbar,
-            text="Zoom: --",
-            bg=self.PANEL,
-            fg="#93c5fd",
-            font=("Segoe UI", 10, "bold")
+            toolbar, text="Zoom: --", bg=self.PANEL, fg="#93c5fd", font=("Segoe UI", 10, "bold")
         )
-        self.zoom_label.pack(
-            side="right",
-            padx=15
-        )
+        self.zoom_label.pack(side="right", padx=15)
 
-        body = tk.Frame(
-            self.root,
-            bg=self.BG
-        )
-        body.pack(
-            fill="both",
-            expand=True,
-            padx=10,
-            pady=10
-        )
+        body = tk.Frame(self.root, bg=self.BG)
+        body.pack(fill="both", expand=True, padx=10, pady=10)
 
-        left = tk.Frame(
-            body,
-            bg=self.BG
-        )
-        left.pack(
-            side="left",
-            fill="both",
-            expand=True
-        )
+        left = tk.Frame(body, bg=self.BG)
+        left.pack(side="left", fill="both", expand=True)
 
-        right = tk.Frame(
-            body,
-            bg=self.PANEL,
-            width=380
-        )
-        right.pack(
-            side="right",
-            fill="y",
-            padx=(10, 0)
-        )
+        right = tk.Frame(body, bg=self.PANEL, width=380)
+        right.pack(side="right", fill="y", padx=(10, 0))
         right.pack_propagate(False)
 
-        info = tk.Frame(
-            left,
-            bg=self.BG
-        )
-        info.pack(
-            fill="x",
-            pady=(0, 7)
-        )
+        info = tk.Frame(left, bg=self.BG)
+        info.pack(fill="x", pady=(0, 7))
 
-        file_row = tk.Frame(
-            info,
-            bg=self.BG
-        )
+        file_row = tk.Frame(info, bg=self.BG)
         file_row.pack(fill="x")
 
         self.filename_label = tk.Label(
@@ -337,24 +194,14 @@ class GCPPicker:
             bg=self.BG,
             fg=self.TEXT,
             font=("Segoe UI", 11, "bold"),
-            anchor="w"
+            anchor="w",
         )
-        self.filename_label.pack(
-            side="left",
-            fill="x",
-            expand=True
-        )
+        self.filename_label.pack(side="left", fill="x", expand=True)
 
         self.counter_label = tk.Label(
-            file_row,
-            text="",
-            bg=self.BG,
-            fg="#60a5fa",
-            font=("Segoe UI", 10, "bold")
+            file_row, text="", bg=self.BG, fg="#60a5fa", font=("Segoe UI", 10, "bold")
         )
-        self.counter_label.pack(
-            side="right"
-        )
+        self.counter_label.pack(side="right")
 
         self.info_label = tk.Label(
             info,
@@ -362,17 +209,12 @@ class GCPPicker:
             bg=self.BG,
             fg=self.MUTED,
             anchor="w",
-            font=("Segoe UI", 9)
+            font=("Segoe UI", 9),
         )
         self.info_label.pack(fill="x")
 
         self.band_label = tk.Label(
-            info,
-            text="Bands: --",
-            bg=self.BG,
-            fg="#94a3b8",
-            anchor="w",
-            font=("Segoe UI", 9)
+            info, text="Bands: --", bg=self.BG, fg="#94a3b8", anchor="w", font=("Segoe UI", 9)
         )
         self.band_label.pack(fill="x")
 
@@ -382,12 +224,9 @@ class GCPPicker:
             bg=self.BG,
             fg=self.YELLOW,
             anchor="w",
-            font=("Segoe UI", 12, "bold")
+            font=("Segoe UI", 12, "bold"),
         )
-        self.pixel_label.pack(
-            fill="x",
-            pady=(3, 0)
-        )
+        self.pixel_label.pack(fill="x", pady=(3, 0))
 
         self.canvas = tk.Canvas(
             left,
@@ -395,67 +234,31 @@ class GCPPicker:
             cursor="cross",
             highlightthickness=1,
             highlightbackground="#374151",
-            highlightcolor="#3b82f6"
+            highlightcolor="#3b82f6",
         )
-        self.canvas.pack(
-            fill="both",
-            expand=True
-        )
+        self.canvas.pack(fill="both", expand=True)
 
-        self.canvas.bind(
-            "<Button-1>",
-            self.select_point
-        )
+        self.canvas.bind("<Button-1>", self.select_point)
 
-        self.canvas.bind(
-            "<MouseWheel>",
-            self.mouse_zoom
-        )
+        self.canvas.bind("<MouseWheel>", self.mouse_zoom)
 
-        self.canvas.bind(
-            "<Button-4>",
-            self.mouse_zoom_linux
-        )
+        self.canvas.bind("<Button-4>", self.mouse_zoom_linux)
 
-        self.canvas.bind(
-            "<Button-5>",
-            self.mouse_zoom_linux
-        )
+        self.canvas.bind("<Button-5>", self.mouse_zoom_linux)
 
-        self.canvas.bind(
-            "<ButtonPress-2>",
-            self.start_pan
-        )
+        self.canvas.bind("<ButtonPress-2>", self.start_pan)
 
-        self.canvas.bind(
-            "<B2-Motion>",
-            self.pan
-        )
+        self.canvas.bind("<B2-Motion>", self.pan)
 
-        self.canvas.bind(
-            "<ButtonRelease-2>",
-            self.end_pan
-        )
+        self.canvas.bind("<ButtonRelease-2>", self.end_pan)
 
-        self.canvas.bind(
-            "<ButtonPress-3>",
-            self.start_pan
-        )
+        self.canvas.bind("<ButtonPress-3>", self.start_pan)
 
-        self.canvas.bind(
-            "<B3-Motion>",
-            self.pan
-        )
+        self.canvas.bind("<B3-Motion>", self.pan)
 
-        self.canvas.bind(
-            "<ButtonRelease-3>",
-            self.end_pan
-        )
+        self.canvas.bind("<ButtonRelease-3>", self.end_pan)
 
-        self.canvas.bind(
-            "<Configure>",
-            self.canvas_resized
-        )
+        self.canvas.bind("<Configure>", self.canvas_resized)
 
         # ------------------------------------------------------
         # Right panel
@@ -466,78 +269,34 @@ class GCPPicker:
             text="GCP INFORMATION",
             bg=self.PANEL,
             fg="#93c5fd",
-            font=("Segoe UI", 11, "bold")
-        ).pack(
-            anchor="w",
-            padx=14,
-            pady=(14, 10)
-        )
+            font=("Segoe UI", 11, "bold"),
+        ).pack(anchor="w", padx=14, pady=(14, 10))
 
-        form = tk.Frame(
-            right,
-            bg=self.PANEL
-        )
-        form.pack(
-            fill="x",
-            padx=14
-        )
+        form = tk.Frame(right, bg=self.PANEL)
+        form.pack(fill="x", padx=14)
 
-        self.form_row(
-            form,
-            "X / Longitude",
-            self.x_var
-        )
+        self.form_row(form, "X / Longitude", self.x_var)
 
-        self.form_row(
-            form,
-            "Y / Latitude",
-            self.y_var
-        )
+        self.form_row(form, "Y / Latitude", self.y_var)
 
-        self.form_row(
-            form,
-            "Z / Elevation",
-            self.z_var
-        )
+        self.form_row(form, "Z / Elevation", self.z_var)
 
-        self.form_row(
-            form,
-            "Label",
-            self.label_var
-        )
+        self.form_row(form, "Label", self.label_var)
 
-        self.form_row(
-            form,
-            "CRS",
-            self.crs_var
-        )
+        self.form_row(form, "CRS", self.crs_var)
 
         tk.Label(
             right,
-            text=(
-                "XYZ and label stay unchanged while moving\n"
-                "between overlapping images."
-            ),
+            text=("XYZ and label stay unchanged while moving\nbetween overlapping images."),
             justify="left",
             bg=self.PANEL,
             fg=self.MUTED,
-            font=("Segoe UI", 9)
-        ).pack(
-            anchor="w",
-            padx=14,
-            pady=(8, 12)
-        )
+            font=("Segoe UI", 9),
+        ).pack(anchor="w", padx=14, pady=(8, 12))
 
         tk.Label(
-            right,
-            text="CURRENT RECORD",
-            bg=self.PANEL,
-            fg="#c4b5fd",
-            font=("Segoe UI", 10, "bold")
-        ).pack(
-            anchor="w",
-            padx=14
-        )
+            right, text="CURRENT RECORD", bg=self.PANEL, fg="#c4b5fd", font=("Segoe UI", 10, "bold")
+        ).pack(anchor="w", padx=14)
 
         self.description = tk.Text(
             right,
@@ -548,171 +307,72 @@ class GCPPicker:
             insertbackground="white",
             relief="flat",
             bd=0,
-            font=("Consolas", 9)
+            font=("Consolas", 9),
         )
-        self.description.pack(
-            fill="x",
-            padx=14,
-            pady=(6, 12)
-        )
+        self.description.pack(fill="x", padx=14, pady=(6, 12))
 
-        self.description.config(
-            state="disabled"
-        )
+        self.description.config(state="disabled")
 
-        stats_row = tk.Frame(
-            right,
-            bg=self.PANEL
-        )
-        stats_row.pack(
-            fill="x",
-            padx=14
-        )
+        stats_row = tk.Frame(right, bg=self.PANEL)
+        stats_row.pack(fill="x", padx=14)
 
         tk.Label(
             stats_row,
             text="OBSERVATIONS",
             bg=self.PANEL,
             fg="#86efac",
-            font=("Segoe UI", 10, "bold")
+            font=("Segoe UI", 10, "bold"),
         ).pack(side="left")
 
         self.obs_count_label = tk.Label(
-            stats_row,
-            text="0",
-            bg=self.PANEL,
-            fg=self.MUTED,
-            font=("Segoe UI", 10, "bold")
+            stats_row, text="0", bg=self.PANEL, fg=self.MUTED, font=("Segoe UI", 10, "bold")
         )
-        self.obs_count_label.pack(
-            side="right"
-        )
+        self.obs_count_label.pack(side="right")
 
         self.group_label = tk.Label(
-            right,
-            text="Groups: --",
-            bg=self.PANEL,
-            fg="#94a3b8",
-            anchor="w",
-            font=("Segoe UI", 9)
+            right, text="Groups: --", bg=self.PANEL, fg="#94a3b8", anchor="w", font=("Segoe UI", 9)
         )
-        self.group_label.pack(
-            fill="x",
-            padx=14,
-            pady=(3, 5)
-        )
+        self.group_label.pack(fill="x", padx=14, pady=(3, 5))
 
-        table_frame = tk.Frame(
-            right,
-            bg=self.PANEL
-        )
-        table_frame.pack(
-            fill="both",
-            expand=True,
-            padx=14,
-            pady=(0, 8)
-        )
+        table_frame = tk.Frame(right, bg=self.PANEL)
+        table_frame.pack(fill="both", expand=True, padx=14, pady=(0, 8))
 
         self.tree = ttk.Treeview(
-            table_frame,
-            columns=(
-                "suffix",
-                "label",
-                "image",
-                "pixel"
-            ),
-            show="headings",
-            height=12
+            table_frame, columns=("suffix", "label", "image", "pixel"), show="headings", height=12
         )
 
-        self.tree.heading(
-            "suffix",
-            text="Type"
-        )
+        self.tree.heading("suffix", text="Type")
 
-        self.tree.heading(
-            "label",
-            text="GCP"
-        )
+        self.tree.heading("label", text="GCP")
 
-        self.tree.heading(
-            "image",
-            text="Image"
-        )
+        self.tree.heading("image", text="Image")
 
-        self.tree.heading(
-            "pixel",
-            text="Pixel"
-        )
+        self.tree.heading("pixel", text="Pixel")
 
-        self.tree.column(
-            "suffix",
-            width=50,
-            anchor="center"
-        )
+        self.tree.column("suffix", width=50, anchor="center")
 
-        self.tree.column(
-            "label",
-            width=60
-        )
+        self.tree.column("label", width=60)
 
-        self.tree.column(
-            "image",
-            width=150
-        )
+        self.tree.column("image", width=150)
 
-        self.tree.column(
-            "pixel",
-            width=100
-        )
+        self.tree.column("pixel", width=100)
 
-        scrollbar = ttk.Scrollbar(
-            table_frame,
-            orient="vertical",
-            command=self.tree.yview
-        )
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
 
-        self.tree.configure(
-            yscrollcommand=scrollbar.set
-        )
+        self.tree.configure(yscrollcommand=scrollbar.set)
 
-        self.tree.pack(
-            side="left",
-            fill="both",
-            expand=True
-        )
+        self.tree.pack(side="left", fill="both", expand=True)
 
-        scrollbar.pack(
-            side="right",
-            fill="y"
-        )
+        scrollbar.pack(side="right", fill="y")
 
-        action_row = tk.Frame(
-            right,
-            bg=self.PANEL
-        )
-        action_row.pack(
-            fill="x",
-            padx=14,
-            pady=(0, 14)
-        )
+        action_row = tk.Frame(right, bg=self.PANEL)
+        action_row.pack(fill="x", padx=14, pady=(0, 14))
 
-        self.make_button(
-            action_row,
-            "Delete Selected",
-            self.delete_selected,
-            self.RED
-        ).pack(
+        self.make_button(action_row, "Delete Selected", self.delete_selected, self.RED).pack(
             side="left"
         )
 
-        self.make_button(
-            action_row,
-            "Clear All",
-            self.clear_all
-        ).pack(
-            side="right"
-        )
+        self.make_button(action_row, "Clear All", self.clear_all).pack(side="right")
 
         self.update_navigation_buttons()
 
@@ -720,26 +380,15 @@ class GCPPicker:
     # File discovery
     # ==========================================================
 
-    def natural_sort_key(
-        self,
-        path
-    ):
+    def natural_sort_key(self, path):
         import re
 
         name = Path(path).name.lower()
 
-        return [
-            int(part) if part.isdigit() else part
-            for part in re.split(r"(\d+)", name)
-        ]
+        return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
 
-    def discover_folder_images(
-        self,
-        selected_path
-    ):
-        selected_path = Path(
-            selected_path
-        ).resolve()
+    def discover_folder_images(self, selected_path):
+        selected_path = Path(selected_path).resolve()
 
         folder = selected_path.parent
 
@@ -747,45 +396,26 @@ class GCPPicker:
             files = [
                 path.resolve()
                 for path in folder.iterdir()
-                if path.is_file()
-                and path.suffix.lower()
-                in self.IMAGE_EXTENSIONS
+                if path.is_file() and path.suffix.lower() in self.IMAGE_EXTENSIONS
             ]
 
         except OSError as e:
-            messagebox.showerror(
-                "Folder error",
-                str(e)
-            )
+            messagebox.showerror("Folder error", str(e))
             files = [selected_path]
 
-        files.sort(
-            key=self.natural_sort_key
-        )
+        files.sort(key=self.natural_sort_key)
 
         self.image_files = files
 
         try:
-            self.current_index = (
-                self.image_files.index(
-                    selected_path
-                )
-            )
+            self.current_index = self.image_files.index(selected_path)
 
         except ValueError:
-            self.image_files.append(
-                selected_path
-            )
+            self.image_files.append(selected_path)
 
-            self.image_files.sort(
-                key=self.natural_sort_key
-            )
+            self.image_files.sort(key=self.natural_sort_key)
 
-            self.current_index = (
-                self.image_files.index(
-                    selected_path
-                )
-            )
+            self.current_index = self.image_files.index(selected_path)
 
         self.update_navigation_buttons()
         self.update_counter()
@@ -800,26 +430,11 @@ class GCPPicker:
 
         path = filedialog.askopenfilename(
             filetypes=[
-                (
-                    "Supported images",
-                    "*.jpg *.jpeg *.png *.tif *.tiff"
-                ),
-                (
-                    "JPEG",
-                    "*.jpg *.jpeg"
-                ),
-                (
-                    "TIFF",
-                    "*.tif *.tiff"
-                ),
-                (
-                    "PNG",
-                    "*.png"
-                ),
-                (
-                    "All files",
-                    "*.*"
-                )
+                ("Supported images", "*.jpg *.jpeg *.png *.tif *.tiff"),
+                ("JPEG", "*.jpg *.jpeg"),
+                ("TIFF", "*.tif *.tiff"),
+                ("PNG", "*.png"),
+                ("All files", "*.*"),
             ]
         )
 
@@ -828,173 +443,93 @@ class GCPPicker:
 
         path = Path(path).resolve()
 
-        self.discover_folder_images(
-            path
-        )
+        self.discover_folder_images(path)
 
-        self.load_image(
-            path
-        )
+        self.load_image(path)
 
-    def load_image(
-        self,
-        path
-    ):
+    def load_image(self, path):
         if self.loading:
             return
 
         self.loading = True
 
-        self.info_label.config(
-            text="Loading image...",
-            fg="#60a5fa"
-        )
+        self.info_label.config(text="Loading image...", fg="#60a5fa")
 
         self.update_navigation_buttons()
 
-        threading.Thread(
-            target=self.load_image_worker,
-            args=(Path(path),),
-            daemon=True
-        ).start()
+        threading.Thread(target=self.load_image_worker, args=(Path(path),), daemon=True).start()
 
-    def load_image_worker(
-        self,
-        path
-    ):
+    def load_image_worker(self, path):
         try:
             suffix = path.suffix.lower()
 
-            if (
-                suffix in {".tif", ".tiff"}
-                and RASTERIO_AVAILABLE
-            ):
-                data = self.load_raster_image(
-                    path
-                )
+            if suffix in {".tif", ".tiff"} and RASTERIO_AVAILABLE:
+                data = self.load_raster_image(path)
 
             else:
-                data = self.load_pillow_image(
-                    path
-                )
+                data = self.load_pillow_image(path)
 
-            self.root.after(
-                0,
-                lambda: self.finish_loading(
-                    path,
-                    data
-                )
-            )
+            self.root.after(0, lambda: self.finish_loading(path, data))
 
-        except Exception as e:
-            self.root.after(
-                0,
-                lambda: self.loading_failed(
-                    str(e)
-                )
-            )
+        except Exception:
+            self.root.after(0, lambda: self.loading_failed(str(e)))
 
-    def load_pillow_image(
-        self,
-        path
-    ):
-        source = Image.open(
-            path
-        )
+    def load_pillow_image(self, path):
+        source = Image.open(path)
 
         source.load()
 
         width, height = source.size
 
-        if source.mode not in (
-            "RGB",
-            "RGBA"
-        ):
-            source = source.convert(
-                "RGB"
-            )
+        if source.mode not in ("RGB", "RGBA"):
+            source = source.convert("RGB")
 
         return {
             "image": source,
             "width": width,
             "height": height,
             "bands": len(source.getbands()),
-            "band_names": list(source.getbands())
+            "band_names": list(source.getbands()),
         }
 
-    def load_raster_image(
-        self,
-        path
-    ):
+    def load_raster_image(self, path):
         with rasterio.open(path) as src:
             width = src.width
             height = src.height
             count = src.count
 
             descriptions = [
-                desc.strip()
-                if desc
-                else f"Band {i + 1}"
-                for i, desc
-                in enumerate(src.descriptions)
+                desc.strip() if desc else f"Band {i + 1}" for i, desc in enumerate(src.descriptions)
             ]
 
             if count == 1:
-                band = self.normalize_band(
-                    src.read(1)
-                )
+                band = self.normalize_band(src.read(1))
 
-                rgb = np.stack(
-                    [band, band, band],
-                    axis=-1
-                )
+                rgb = np.stack([band, band, band], axis=-1)
 
             else:
-                indexes = self.choose_display_bands(
-                    descriptions,
-                    count
-                )
+                indexes = self.choose_display_bands(descriptions, count)
 
-                bands = [
-                    self.normalize_band(
-                        src.read(index)
-                    )
-                    for index in indexes
-                ]
+                bands = [self.normalize_band(src.read(index)) for index in indexes]
 
                 while len(bands) < 3:
-                    bands.append(
-                        bands[-1]
-                    )
+                    bands.append(bands[-1])
 
-                rgb = np.stack(
-                    bands[:3],
-                    axis=-1
-                )
+                rgb = np.stack(bands[:3], axis=-1)
 
-            image = Image.fromarray(
-                rgb.astype(np.uint8),
-                mode="RGB"
-            )
+            image = Image.fromarray(rgb.astype(np.uint8), mode="RGB")
 
             return {
                 "image": image,
                 "width": width,
                 "height": height,
                 "bands": count,
-                "band_names": descriptions
+                "band_names": descriptions,
             }
 
-    def choose_display_bands(
-        self,
-        descriptions,
-        count
-    ):
+    def choose_display_bands(self, descriptions, count):
         cleaned = [
-            value.lower()
-            .replace("_", "")
-            .replace("-", "")
-            .replace(" ", "")
+            value.lower().replace("_", "").replace("-", "").replace(" ", "")
             for value in descriptions
         ]
 
@@ -1015,95 +550,42 @@ class GCPPicker:
         green = find(["green", "g"])
         blue = find(["blue", "b"])
 
-        if (
-            red is not None
-            and green is not None
-            and blue is not None
-        ):
-            return [
-                red,
-                green,
-                blue
-            ]
+        if red is not None and green is not None and blue is not None:
+            return [red, green, blue]
 
-        return list(
-            range(
-                1,
-                min(count, 3) + 1
-            )
-        )
+        return list(range(1, min(count, 3) + 1))
 
-    def normalize_band(
-        self,
-        array
-    ):
-        array = np.asarray(
-            array,
-            dtype=np.float32
-        )
+    def normalize_band(self, array):
+        array = np.asarray(array, dtype=np.float32)
 
-        valid = np.isfinite(
-            array
-        )
+        valid = np.isfinite(array)
 
         if not np.any(valid):
-            return np.zeros(
-                array.shape,
-                dtype=np.uint8
-            )
+            return np.zeros(array.shape, dtype=np.uint8)
 
         values = array[valid]
 
-        low = np.percentile(
-            values,
-            2
-        )
+        low = np.percentile(values, 2)
 
-        high = np.percentile(
-            values,
-            98
-        )
+        high = np.percentile(values, 98)
 
         if high <= low:
-            low = float(
-                values.min()
-            )
+            low = float(values.min())
 
-            high = float(
-                values.max()
-            )
+            high = float(values.max())
 
         if high <= low:
-            return np.zeros(
-                array.shape,
-                dtype=np.uint8
-            )
+            return np.zeros(array.shape, dtype=np.uint8)
 
-        output = (
-            array - low
-        ) / (
-            high - low
-        )
+        output = (array - low) / (high - low)
 
-        output = np.clip(
-            output,
-            0,
-            1
-        )
+        output = np.clip(output, 0, 1)
 
-        output[
-            ~valid
-        ] = 0
+        output[~valid] = 0
 
-        return (
-            output * 255
-        ).astype(np.uint8)
+        return (output * 255).astype(np.uint8)
 
-    def finish_loading(
-        self,
-        path,
-        data
-    ):
+    def finish_loading(self, path, data):
         self.image = data["image"]
         self.image_path = Path(path)
 
@@ -1118,50 +600,26 @@ class GCPPicker:
         self.first_display = True
 
         try:
-            self.current_index = (
-                self.image_files.index(
-                    self.image_path.resolve()
-                )
-            )
+            self.current_index = self.image_files.index(self.image_path.resolve())
         except ValueError:
             pass
 
         filename = self.image_path.name
 
-        self.root.title(
-            f"GCP Pixel Picker - {filename}"
-        )
+        self.root.title(f"GCP Pixel Picker - {filename}")
 
-        self.filename_label.config(
-            text=filename
-        )
+        self.filename_label.config(text=filename)
 
         self.info_label.config(
-            text=(
-                f"Original raster: "
-                f"{self.source_width} × "
-                f"{self.source_height} px"
-            ),
-            fg="#34d399"
+            text=(f"Original raster: {self.source_width} × {self.source_height} px"), fg="#34d399"
         )
 
         if self.band_names:
-            self.band_label.config(
-                text=(
-                    "Bands: "
-                    + ", ".join(
-                        self.band_names
-                    )
-                )
-            )
+            self.band_label.config(text=("Bands: " + ", ".join(self.band_names)))
         else:
-            self.band_label.config(
-                text=f"Bands: {self.band_count}"
-            )
+            self.band_label.config(text=f"Bands: {self.band_count}")
 
-        self.pixel_label.config(
-            text="Pixel: --"
-        )
+        self.pixel_label.config(text="Pixel: --")
 
         self.update_description()
         self.update_counter()
@@ -1171,16 +629,10 @@ class GCPPicker:
 
         self.fit_image()
 
-    def loading_failed(
-        self,
-        error
-    ):
+    def loading_failed(self, error):
         self.loading = False
 
-        self.info_label.config(
-            text=f"Could not open image: {error}",
-            fg="#f87171"
-        )
+        self.info_label.config(text=f"Could not open image: {error}", fg="#f87171")
 
         self.update_navigation_buttons()
 
@@ -1189,94 +641,46 @@ class GCPPicker:
     # ==========================================================
 
     def next_image(self):
-        if (
-            self.loading
-            or not self.image_files
-            or self.current_index
-            >= len(self.image_files) - 1
-        ):
+        if self.loading or not self.image_files or self.current_index >= len(self.image_files) - 1:
             return
 
         self.current_index += 1
 
-        self.load_image(
-            self.image_files[
-                self.current_index
-            ]
-        )
+        self.load_image(self.image_files[self.current_index])
 
     def previous_image(self):
-        if (
-            self.loading
-            or not self.image_files
-            or self.current_index <= 0
-        ):
+        if self.loading or not self.image_files or self.current_index <= 0:
             return
 
         self.current_index -= 1
 
-        self.load_image(
-            self.image_files[
-                self.current_index
-            ]
-        )
+        self.load_image(self.image_files[self.current_index])
 
     def update_counter(self):
-        if (
-            self.image_files
-            and self.current_index >= 0
-        ):
-            self.counter_label.config(
-                text=(
-                    f"{self.current_index + 1}"
-                    f" / "
-                    f"{len(self.image_files)}"
-                )
-            )
+        if self.image_files and self.current_index >= 0:
+            self.counter_label.config(text=(f"{self.current_index + 1} / {len(self.image_files)}"))
         else:
-            self.counter_label.config(
-                text=""
-            )
+            self.counter_label.config(text="")
 
     def update_navigation_buttons(self):
-        previous_available = (
-            bool(self.image_files)
-            and self.current_index > 0
-            and not self.loading
-        )
+        previous_available = bool(self.image_files) and self.current_index > 0 and not self.loading
 
         next_available = (
             bool(self.image_files)
-            and 0 <= self.current_index
-            < len(self.image_files) - 1
+            and 0 <= self.current_index < len(self.image_files) - 1
             and not self.loading
         )
 
-        self.prev_button.config(
-            state=(
-                "normal"
-                if previous_available
-                else "disabled"
-            )
-        )
+        self.prev_button.config(state=("normal" if previous_available else "disabled"))
 
-        self.next_button.config(
-            state=(
-                "normal"
-                if next_available
-                else "disabled"
-            )
-        )
+        self.next_button.config(state=("normal" if next_available else "disabled"))
 
     # ==========================================================
     # Records
     # ==========================================================
 
     def create_record(self):
-        if (
-            self.selected is None
-            or self.image_path is None
-        ):
+        if self.selected is None or self.image_path is None:
             return None
 
         gx = self.x_var.get().strip()
@@ -1284,76 +688,37 @@ class GCPPicker:
         gz = self.z_var.get().strip()
         label = self.label_var.get().strip()
 
-        if any((gx, gy, gz)) and not all(
-            (gx, gy, gz)
-        ):
+        if any((gx, gy, gz)) and not all((gx, gy, gz)):
             return None
 
         px, py = self.selected
 
-        return (
-            gx,
-            gy,
-            gz,
-            round(px, 3),
-            round(py, 3),
-            self.image_path.name,
-            label
-        )
+        return (gx, gy, gz, round(px, 3), round(py, 3), self.image_path.name, label)
 
-    def format_record(
-        self,
-        record
-    ):
+    def format_record(self, record):
         gx, gy, gz, px, py, filename, label = record
 
         parts = []
 
         if gx and gy and gz:
-            parts.extend(
-                [
-                    gx,
-                    gy,
-                    gz
-                ]
-            )
+            parts.extend([gx, gy, gz])
 
-        parts.extend(
-            [
-                f"{px:.3f}",
-                f"{py:.3f}",
-                filename
-            ]
-        )
+        parts.extend([f"{px:.3f}", f"{py:.3f}", filename])
 
         if label:
-            parts.append(
-                label
-            )
+            parts.append(label)
 
-        return " ".join(
-            parts
-        )
+        return " ".join(parts)
 
     def update_description(self):
         record = self.create_record()
 
-        self.description.config(
-            state="normal"
-        )
+        self.description.config(state="normal")
 
-        self.description.delete(
-            "1.0",
-            "end"
-        )
+        self.description.delete("1.0", "end")
 
         if record is not None:
-            self.description.insert(
-                "1.0",
-                self.format_record(
-                    record
-                )
-            )
+            self.description.insert("1.0", self.format_record(record))
 
         elif self.selected is not None:
             gx = self.x_var.get().strip()
@@ -1361,34 +726,22 @@ class GCPPicker:
             gz = self.z_var.get().strip()
 
             if any((gx, gy, gz)):
-                self.description.insert(
-                    "1.0",
-                    "Provide X, Y and Z together."
-                )
+                self.description.insert("1.0", "Provide X, Y and Z together.")
 
-        self.description.config(
-            state="disabled"
-        )
+        self.description.config(state="disabled")
 
     def add_observation(self):
         if self.selected is None:
-            messagebox.showwarning(
-                "No GCP selected",
-                "Click the center of the GCP first."
-            )
+            messagebox.showwarning("No GCP selected", "Click the center of the GCP first.")
             return False
 
         gx = self.x_var.get().strip()
         gy = self.y_var.get().strip()
         gz = self.z_var.get().strip()
 
-        if (
-            any((gx, gy, gz))
-            and not all((gx, gy, gz))
-        ):
+        if any((gx, gy, gz)) and not all((gx, gy, gz)):
             messagebox.showwarning(
-                "Incomplete coordinates",
-                "Provide X, Y and Z together, or leave all three blank."
+                "Incomplete coordinates", "Provide X, Y and Z together, or leave all three blank."
             )
             return False
 
@@ -1401,32 +754,17 @@ class GCPPicker:
 
         # STRICT extension grouping.
         # No _D / _MS / band-name inference.
-        suffix = Path(
-            filename
-        ).suffix.lower()
+        suffix = Path(filename).suffix.lower()
 
-        bucket = self.records.setdefault(
-            suffix,
-            set()
-        )
+        bucket = self.records.setdefault(suffix, set())
 
-        count_before = len(
-            bucket
-        )
+        count_before = len(bucket)
 
-        bucket.add(
-            record
-        )
+        bucket.add(record)
 
         # Set prevents exact duplicate automatically.
         if len(bucket) == count_before:
-            self.info_label.config(
-                text=(
-                    f"Duplicate ignored: "
-                    f"{filename}"
-                ),
-                fg=self.YELLOW
-            )
+            self.info_label.config(text=(f"Duplicate ignored: {filename}"), fg=self.YELLOW)
 
             return False
 
@@ -1435,12 +773,7 @@ class GCPPicker:
         px, py = self.selected
 
         self.info_label.config(
-            text=(
-                f"Added {suffix}: "
-                f"{filename} @ "
-                f"({px:.3f}, {py:.3f})"
-            ),
-            fg="#34d399"
+            text=(f"Added {suffix}: {filename} @ ({px:.3f}, {py:.3f})"), fg="#34d399"
         )
 
         return True
@@ -1449,103 +782,47 @@ class GCPPicker:
         if not self.add_observation():
             return
 
-        if (
-            self.current_index
-            < len(self.image_files) - 1
-        ):
+        if self.current_index < len(self.image_files) - 1:
             self.next_image()
 
         else:
             self.info_label.config(
-                text=(
-                    "Observation added. "
-                    "This is the last image."
-                ),
-                fg=self.YELLOW
+                text=("Observation added. This is the last image."), fg=self.YELLOW
             )
 
     def total_records(self):
-        return sum(
-            len(records)
-            for records
-            in self.records.values()
-        )
+        return sum(len(records) for records in self.records.values())
 
     def refresh_record_table(self):
         for item in self.tree.get_children():
-            self.tree.delete(
-                item
-            )
+            self.tree.delete(item)
 
         self.tree_records.clear()
 
-        for suffix in sorted(
-            self.records
-        ):
+        for suffix in sorted(self.records):
             records = sorted(
-                self.records[suffix],
-                key=lambda r: (
-                    r[5].lower(),
-                    r[6].lower(),
-                    r[3],
-                    r[4]
-                )
+                self.records[suffix], key=lambda r: (r[5].lower(), r[6].lower(), r[3], r[4])
             )
 
             for record in records:
-                (
-                    gx,
-                    gy,
-                    gz,
-                    px,
-                    py,
-                    filename,
-                    label
-                ) = record
+                (gx, gy, gz, px, py, filename, label) = record
 
                 item = self.tree.insert(
-                    "",
-                    "end",
-                    values=(
-                        suffix,
-                        label or "—",
-                        filename,
-                        f"{px:.3f}, {py:.3f}"
-                    )
+                    "", "end", values=(suffix, label or "—", filename, f"{px:.3f}, {py:.3f}")
                 )
 
-                self.tree_records[
-                    item
-                ] = (
-                    suffix,
-                    record
-                )
+                self.tree_records[item] = (suffix, record)
 
-        self.obs_count_label.config(
-            text=str(
-                self.total_records()
-            )
-        )
+        self.obs_count_label.config(text=str(self.total_records()))
 
         if self.records:
             groups = [
-                f"{suffix}: {len(records)}"
-                for suffix, records
-                in sorted(
-                    self.records.items()
-                )
+                f"{suffix}: {len(records)}" for suffix, records in sorted(self.records.items())
             ]
 
-            self.group_label.config(
-                text=(
-                    "Groups: "
-                    + "   ".join(groups)
-                )
-            )
+            self.group_label.config(text=("Groups: " + "   ".join(groups)))
         else:
-            self.group_label.config(
-                text="Groups: --"
-            )
+            self.group_label.config(text="Groups: --")
 
     def delete_selected(self):
         selected_items = self.tree.selection()
@@ -1554,28 +831,20 @@ class GCPPicker:
             return
 
         for item in selected_items:
-            data = self.tree_records.get(
-                item
-            )
+            data = self.tree_records.get(item)
 
             if data is None:
                 continue
 
             suffix, record = data
 
-            bucket = self.records.get(
-                suffix
-            )
+            bucket = self.records.get(suffix)
 
             if bucket is not None:
-                bucket.discard(
-                    record
-                )
+                bucket.discard(record)
 
                 if not bucket:
-                    del self.records[
-                        suffix
-                    ]
+                    del self.records[suffix]
 
         self.refresh_record_table()
 
@@ -1583,10 +852,7 @@ class GCPPicker:
         if not self.records:
             return
 
-        confirmed = messagebox.askyesno(
-            "Clear all observations",
-            "Delete every saved observation?"
-        )
+        confirmed = messagebox.askyesno("Clear all observations", "Delete every saved observation?")
 
         if not confirmed:
             return
@@ -1601,44 +867,23 @@ class GCPPicker:
 
     def export_txt(self):
         if not self.records:
-            messagebox.showwarning(
-                "Nothing to export",
-                "Add at least one observation first."
-            )
+            messagebox.showwarning("Nothing to export", "Add at least one observation first.")
             return
 
-        suffixes = sorted(
-            self.records.keys()
-        )
+        suffixes = sorted(self.records.keys())
 
-        self.show_export_dialog(
-            suffixes
-        )
+        self.show_export_dialog(suffixes)
 
-    def show_export_dialog(
-        self,
-        suffixes
-    ):
-        dialog = tk.Toplevel(
-            self.root
-        )
+    def show_export_dialog(self, suffixes):
+        dialog = tk.Toplevel(self.root)
 
-        dialog.title(
-            "Export Observations"
-        )
+        dialog.title("Export Observations")
 
-        dialog.configure(
-            bg=self.PANEL
-        )
+        dialog.configure(bg=self.PANEL)
 
-        dialog.resizable(
-            False,
-            False
-        )
+        dialog.resizable(False, False)
 
-        dialog.transient(
-            self.root
-        )
+        dialog.transient(self.root)
 
         dialog.grab_set()
 
@@ -1647,162 +892,74 @@ class GCPPicker:
             text="Choose what to export",
             bg=self.PANEL,
             fg=self.TEXT,
-            font=("Segoe UI", 12, "bold")
-        ).pack(
-            padx=25,
-            pady=(20, 5)
-        )
+            font=("Segoe UI", 12, "bold"),
+        ).pack(padx=25, pady=(20, 5))
 
         tk.Label(
             dialog,
-            text=(
-                "Records are grouped strictly "
-                "by file extension."
-            ),
+            text=("Records are grouped strictly by file extension."),
             bg=self.PANEL,
             fg=self.MUTED,
-            font=("Segoe UI", 9)
-        ).pack(
-            padx=25,
-            pady=(0, 15)
-        )
+            font=("Segoe UI", 9),
+        ).pack(padx=25, pady=(0, 15))
 
         self.make_button(
             dialog,
             f"Export ALL ({self.total_records()})",
-            lambda: self.export_group(
-                dialog,
-                None
-            ),
-            self.PURPLE
-        ).pack(
-            fill="x",
-            padx=25,
-            pady=4
-        )
+            lambda: self.export_group(dialog, None),
+            self.PURPLE,
+        ).pack(fill="x", padx=25, pady=4)
 
         for suffix in suffixes:
-            count = len(
-                self.records[
-                    suffix
-                ]
-            )
+            count = len(self.records[suffix])
 
             self.make_button(
                 dialog,
                 f"Export {suffix} ({count})",
-                lambda s=suffix:
-                    self.export_group(
-                        dialog,
-                        s
-                    ),
-                self.BLUE
-            ).pack(
-                fill="x",
-                padx=25,
-                pady=4
-            )
+                lambda s=suffix: self.export_group(dialog, s),
+                self.BLUE,
+            ).pack(fill="x", padx=25, pady=4)
 
-        self.make_button(
-            dialog,
-            "Cancel",
-            dialog.destroy
-        ).pack(
-            fill="x",
-            padx=25,
-            pady=(10, 20)
-        )
+        self.make_button(dialog, "Cancel", dialog.destroy).pack(fill="x", padx=25, pady=(10, 20))
 
         dialog.update_idletasks()
 
-        x = (
-            self.root.winfo_rootx()
-            + (
-                self.root.winfo_width()
-                - dialog.winfo_width()
-            ) // 2
-        )
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - dialog.winfo_width()) // 2
 
-        y = (
-            self.root.winfo_rooty()
-            + (
-                self.root.winfo_height()
-                - dialog.winfo_height()
-            ) // 2
-        )
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - dialog.winfo_height()) // 2
 
-        dialog.geometry(
-            f"+{x}+{y}"
-        )
+        dialog.geometry(f"+{x}+{y}")
 
-    def export_group(
-        self,
-        dialog,
-        suffix=None
-    ):
+    def export_group(self, dialog, suffix=None):
         dialog.destroy()
 
         if suffix is None:
             records = []
 
-            for group_suffix in sorted(
-                self.records
-            ):
+            for group_suffix in sorted(self.records):
                 records.extend(
                     sorted(
-                        self.records[
-                            group_suffix
-                        ],
-                        key=lambda r: (
-                            r[5].lower(),
-                            r[6].lower(),
-                            r[3],
-                            r[4]
-                        )
+                        self.records[group_suffix],
+                        key=lambda r: (r[5].lower(), r[6].lower(), r[3], r[4]),
                     )
                 )
 
-            default_name = (
-                "gcp_all.txt"
-            )
+            default_name = "gcp_all.txt"
 
         else:
             records = sorted(
-                self.records.get(
-                    suffix,
-                    set()
-                ),
-                key=lambda r: (
-                    r[5].lower(),
-                    r[6].lower(),
-                    r[3],
-                    r[4]
-                )
+                self.records.get(suffix, set()),
+                key=lambda r: (r[5].lower(), r[6].lower(), r[3], r[4]),
             )
 
-            suffix_name = (
-                suffix
-                .replace(".", "")
-                or "records"
-            )
+            suffix_name = suffix.replace(".", "") or "records"
 
-            default_name = (
-                f"gcp_{suffix_name}.txt"
-            )
+            default_name = f"gcp_{suffix_name}.txt"
 
         path = filedialog.asksaveasfilename(
             defaultextension=".txt",
             initialfile=default_name,
-            filetypes=[
-                (
-                    "Text file",
-                    "*.txt"
-                ),
-                (
-                    "All files",
-                    "*.*"
-                )
-            ]
+            filetypes=[("Text file", "*.txt"), ("All files", "*.*")],
         )
 
         if not path:
@@ -1810,96 +967,45 @@ class GCPPicker:
 
         crs = self.crs_var.get().strip()
 
-        with open(
-            path,
-            "w",
-            encoding="utf-8"
-        ) as file:
+        with open(path, "w", encoding="utf-8") as file:
             if crs:
-                file.write(
-                    crs + "\n"
-                )
+                file.write(crs + "\n")
 
             for record in records:
-                file.write(
-                    self.format_record(
-                        record
-                    )
-                    + "\n"
-                )
+                file.write(self.format_record(record) + "\n")
 
-        description = (
-            "all groups"
-            if suffix is None
-            else suffix
-        )
+        description = "all groups" if suffix is None else suffix
 
         messagebox.showinfo(
-            "Export complete",
-            (
-                f"Exported {len(records)} "
-                f"record(s) from {description}.\n\n"
-                f"{path}"
-            )
+            "Export complete", (f"Exported {len(records)} record(s) from {description}.\n\n{path}")
         )
 
     # ==========================================================
     # Pixel selection
     # ==========================================================
 
-    def select_point(
-        self,
-        event
-    ):
+    def select_point(self, event):
         if self.image is None:
             return
 
         # Convert canvas position directly into
         # ORIGINAL source-image coordinates.
-        x = (
-            event.x - self.offset_x
-        ) / self.scale
+        x = (event.x - self.offset_x) / self.scale
 
-        y = (
-            event.y - self.offset_y
-        ) / self.scale
+        y = (event.y - self.offset_y) / self.scale
 
-        if not (
-            0 <= x < self.source_width
-            and
-            0 <= y < self.source_height
-        ):
+        if not (0 <= x < self.source_width and 0 <= y < self.source_height):
             return
 
         # Keep subpixel precision.
         # DO NOT round to integer pixels.
-        x = min(
-            max(
-                float(x),
-                0.0
-            ),
-            self.source_width - 1.0
-        )
+        x = min(max(float(x), 0.0), self.source_width - 1.0)
 
-        y = min(
-            max(
-                float(y),
-                0.0
-            ),
-            self.source_height - 1.0
-        )
+        y = min(max(float(y), 0.0), self.source_height - 1.0)
 
-        self.selected = (
-            x,
-            y
-        )
+        self.selected = (x, y)
 
-        self.pixel_label.config(
-            text=(
-                f"Pixel: X = {x:.3f}     "
-                f"Y = {y:.3f}"
-            )
-        )
+        self.pixel_label.config(text=(f"Pixel: X = {x:.3f}     Y = {y:.3f}"))
 
         self.info_label.config(
             text=(
@@ -1908,7 +1014,7 @@ class GCPPicker:
                 f"{self.source_width} × "
                 f"{self.source_height} px"
             ),
-            fg="#34d399"
+            fg="#34d399",
         )
 
         self.update_description()
@@ -1924,48 +1030,24 @@ class GCPPicker:
 
         self.canvas.update_idletasks()
 
-        cw = max(
-            self.canvas.winfo_width(),
-            1
-        )
+        cw = max(self.canvas.winfo_width(), 1)
 
-        ch = max(
-            self.canvas.winfo_height(),
-            1
-        )
+        ch = max(self.canvas.winfo_height(), 1)
 
         iw = self.source_width
         ih = self.source_height
 
         margin = 20
 
-        self.scale = min(
-            max(
-                cw - margin * 2,
-                1
-            ) / iw,
-            max(
-                ch - margin * 2,
-                1
-            ) / ih
-        )
+        self.scale = min(max(cw - margin * 2, 1) / iw, max(ch - margin * 2, 1) / ih)
 
-        self.min_scale = (
-            self.scale * 0.25
-        )
+        self.min_scale = self.scale * 0.25
 
-        self.max_scale = max(
-            20.0,
-            self.scale * 100
-        )
+        self.max_scale = max(20.0, self.scale * 100)
 
-        self.offset_x = (
-            cw - iw * self.scale
-        ) / 2
+        self.offset_x = (cw - iw * self.scale) / 2
 
-        self.offset_y = (
-            ch - ih * self.scale
-        ) / 2
+        self.offset_y = (ch - ih * self.scale) / 2
 
         self.render()
 
@@ -1976,163 +1058,81 @@ class GCPPicker:
         cw = self.canvas.winfo_width()
         ch = self.canvas.winfo_height()
 
-        center_x = (
-            cw / 2 - self.offset_x
-        ) / self.scale
+        center_x = (cw / 2 - self.offset_x) / self.scale
 
-        center_y = (
-            ch / 2 - self.offset_y
-        ) / self.scale
+        center_y = (ch / 2 - self.offset_y) / self.scale
 
         self.scale = 1.0
 
-        self.offset_x = (
-            cw / 2 - center_x
-        )
+        self.offset_x = cw / 2 - center_x
 
-        self.offset_y = (
-            ch / 2 - center_y
-        )
+        self.offset_y = ch / 2 - center_y
 
         self.render()
 
-    def mouse_zoom(
-        self,
-        event
-    ):
+    def mouse_zoom(self, event):
         if self.image is None:
             return
 
-        factor = (
-            1.20
-            if event.delta > 0
-            else 1 / 1.20
-        )
+        factor = 1.20 if event.delta > 0 else 1 / 1.20
 
-        self.zoom_at(
-            event.x,
-            event.y,
-            factor
-        )
+        self.zoom_at(event.x, event.y, factor)
 
-    def mouse_zoom_linux(
-        self,
-        event
-    ):
+    def mouse_zoom_linux(self, event):
         if self.image is None:
             return
 
-        factor = (
-            1.20
-            if event.num == 4
-            else 1 / 1.20
-        )
+        factor = 1.20 if event.num == 4 else 1 / 1.20
 
-        self.zoom_at(
-            event.x,
-            event.y,
-            factor
-        )
+        self.zoom_at(event.x, event.y, factor)
 
-    def zoom_at(
-        self,
-        mouse_x,
-        mouse_y,
-        factor
-    ):
+    def zoom_at(self, mouse_x, mouse_y, factor):
         if self.image is None:
             return
 
         old_scale = self.scale
 
-        new_scale = max(
-            self.min_scale,
-            min(
-                old_scale * factor,
-                self.max_scale
-            )
-        )
+        new_scale = max(self.min_scale, min(old_scale * factor, self.max_scale))
 
         if new_scale == old_scale:
             return
 
-        image_x = (
-            mouse_x - self.offset_x
-        ) / old_scale
+        image_x = (mouse_x - self.offset_x) / old_scale
 
-        image_y = (
-            mouse_y - self.offset_y
-        ) / old_scale
+        image_y = (mouse_y - self.offset_y) / old_scale
 
         self.scale = new_scale
 
-        self.offset_x = (
-            mouse_x
-            - image_x * new_scale
-        )
+        self.offset_x = mouse_x - image_x * new_scale
 
-        self.offset_y = (
-            mouse_y
-            - image_y * new_scale
-        )
+        self.offset_y = mouse_y - image_y * new_scale
 
         self.render()
 
-    def start_pan(
-        self,
-        event
-    ):
+    def start_pan(self, event):
         if self.image is None:
             return
 
-        self.pan_start = (
-            event.x,
-            event.y,
-            self.offset_x,
-            self.offset_y
-        )
+        self.pan_start = (event.x, event.y, self.offset_x, self.offset_y)
 
-        self.canvas.config(
-            cursor="fleur"
-        )
+        self.canvas.config(cursor="fleur")
 
-    def pan(
-        self,
-        event
-    ):
+    def pan(self, event):
         if self.pan_start is None:
             return
 
-        (
-            start_x,
-            start_y,
-            old_offset_x,
-            old_offset_y
-        ) = self.pan_start
+        (start_x, start_y, old_offset_x, old_offset_y) = self.pan_start
 
-        self.offset_x = (
-            old_offset_x
-            + event.x
-            - start_x
-        )
+        self.offset_x = old_offset_x + event.x - start_x
 
-        self.offset_y = (
-            old_offset_y
-            + event.y
-            - start_y
-        )
+        self.offset_y = old_offset_y + event.y - start_y
 
         self.render()
 
-    def end_pan(
-        self,
-        event=None
-    ):
+    def end_pan(self, event=None):
         self.pan_start = None
 
-        self.canvas.config(
-            cursor="cross"
-        )
+        self.canvas.config(cursor="cross")
 
     # ==========================================================
     # Rendering
@@ -2148,193 +1148,67 @@ class GCPPicker:
         cw = self.canvas.winfo_width()
         ch = self.canvas.winfo_height()
 
-        img_left = max(
-            0,
-            int(
-                -self.offset_x
-                / self.scale
-            )
-        )
+        img_left = max(0, int(-self.offset_x / self.scale))
 
-        img_top = max(
-            0,
-            int(
-                -self.offset_y
-                / self.scale
-            )
-        )
+        img_top = max(0, int(-self.offset_y / self.scale))
 
-        img_right = min(
-            iw,
-            int(
-                (
-                    cw - self.offset_x
-                ) / self.scale
-            ) + 2
-        )
+        img_right = min(iw, int((cw - self.offset_x) / self.scale) + 2)
 
-        img_bottom = min(
-            ih,
-            int(
-                (
-                    ch - self.offset_y
-                ) / self.scale
-            ) + 2
-        )
+        img_bottom = min(ih, int((ch - self.offset_y) / self.scale) + 2)
 
-        self.canvas.delete(
-            "all"
-        )
+        self.canvas.delete("all")
 
-        if (
-            img_right <= img_left
-            or
-            img_bottom <= img_top
-        ):
+        if img_right <= img_left or img_bottom <= img_top:
             return
 
         # Rendering uses a crop/resize only for display.
         # The original raster coordinate system remains unchanged.
-        crop = self.image.crop(
-            (
-                img_left,
-                img_top,
-                img_right,
-                img_bottom
-            )
-        )
+        crop = self.image.crop((img_left, img_top, img_right, img_bottom))
 
-        crop_width = max(
-            int(
-                (
-                    img_right
-                    - img_left
-                ) * self.scale
-            ),
-            1
-        )
+        crop_width = max(int((img_right - img_left) * self.scale), 1)
 
-        crop_height = max(
-            int(
-                (
-                    img_bottom
-                    - img_top
-                ) * self.scale
-            ),
-            1
-        )
+        crop_height = max(int((img_bottom - img_top) * self.scale), 1)
 
-        resample = (
-            Image.Resampling.NEAREST
-            if self.scale >= 4
-            else Image.Resampling.LANCZOS
-        )
+        resample = Image.Resampling.NEAREST if self.scale >= 4 else Image.Resampling.LANCZOS
 
-        crop = crop.resize(
-            (
-                crop_width,
-                crop_height
-            ),
-            resample
-        )
+        crop = crop.resize((crop_width, crop_height), resample)
 
-        self.tk_image = ImageTk.PhotoImage(
-            crop
-        )
+        self.tk_image = ImageTk.PhotoImage(crop)
 
-        canvas_x = (
-            self.offset_x
-            + img_left * self.scale
-        )
+        canvas_x = self.offset_x + img_left * self.scale
 
-        canvas_y = (
-            self.offset_y
-            + img_top * self.scale
-        )
+        canvas_y = self.offset_y + img_top * self.scale
 
-        self.canvas.create_image(
-            canvas_x,
-            canvas_y,
-            anchor="nw",
-            image=self.tk_image
-        )
+        self.canvas.create_image(canvas_x, canvas_y, anchor="nw", image=self.tk_image)
 
         if self.selected is not None:
-            self.draw_marker(
-                *self.selected
-            )
+            self.draw_marker(*self.selected)
 
-        self.zoom_label.config(
-            text=(
-                f"Zoom: "
-                f"{self.scale * 100:.1f}%"
-            )
-        )
+        self.zoom_label.config(text=(f"Zoom: {self.scale * 100:.1f}%"))
 
-    def draw_marker(
-        self,
-        x,
-        y
-    ):
-        cx = (
-            self.offset_x
-            + x * self.scale
-        )
+    def draw_marker(self, x, y):
+        cx = self.offset_x + x * self.scale
 
-        cy = (
-            self.offset_y
-            + y * self.scale
-        )
+        cy = self.offset_y + y * self.scale
 
         radius = 18
 
-        self.canvas.create_line(
-            cx - radius,
-            cy,
-            cx + radius,
-            cy,
-            fill="#ef4444",
-            width=2
-        )
+        self.canvas.create_line(cx - radius, cy, cx + radius, cy, fill="#ef4444", width=2)
 
-        self.canvas.create_line(
-            cx,
-            cy - radius,
-            cx,
-            cy + radius,
-            fill="#ef4444",
-            width=2
-        )
+        self.canvas.create_line(cx, cy - radius, cx, cy + radius, fill="#ef4444", width=2)
 
-        self.canvas.create_oval(
-            cx - 5,
-            cy - 5,
-            cx + 5,
-            cy + 5,
-            outline="#fde047",
-            width=2
-        )
+        self.canvas.create_oval(cx - 5, cy - 5, cx + 5, cy + 5, outline="#fde047", width=2)
 
         self.canvas.create_text(
             cx + 13,
             cy - 15,
-            text=(
-                f"X={x:.3f}  "
-                f"Y={y:.3f}"
-            ),
+            text=(f"X={x:.3f}  Y={y:.3f}"),
             anchor="sw",
             fill="#fde047",
-            font=(
-                "Segoe UI",
-                10,
-                "bold"
-            )
+            font=("Segoe UI", 10, "bold"),
         )
 
-    def canvas_resized(
-        self,
-        event
-    ):
+    def canvas_resized(self, event):
         if self.image is None:
             return
 
@@ -2349,23 +1223,11 @@ class GCPPicker:
     # ==========================================================
 
     def bind_shortcuts(self):
-        self.root.bind(
-            "<Left>",
-            lambda event:
-                self.previous_image()
-        )
+        self.root.bind("<Left>", lambda event: self.previous_image())
 
-        self.root.bind(
-            "<Right>",
-            lambda event:
-                self.next_image()
-        )
+        self.root.bind("<Right>", lambda event: self.next_image())
 
-        self.root.bind(
-            "<Control-Return>",
-            lambda event:
-                self.add_and_next()
-        )
+        self.root.bind("<Control-Return>", lambda event: self.add_and_next())
 
 
 if __name__ == "__main__":

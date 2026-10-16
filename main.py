@@ -1,3 +1,4 @@
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -8,7 +9,6 @@ from PIL import Image, ImageTk
 from helpers import (
     add_record,
     create_record,
-    discover_folder_images,
     export_records,
     format_record,
     load_image_data,
@@ -19,11 +19,33 @@ from helpers import (
 )
 
 
+def resource_path(filename):
+    """Return an asset path that works in development and PyInstaller builds."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return base / filename
+
+
 class RoundedInfoCard(tk.Canvas):
-    def __init__(self, parent, title, value="--", fill="#0f172a", outline="#334155",
-                 title_color="#94a3b8", value_color="#f8fafc", height=68, radius=16):
-        super().__init__(parent, height=height, bg=parent.cget("bg"), bd=0,
-                         highlightthickness=0, relief="flat")
+    def __init__(
+        self,
+        parent,
+        title,
+        value="--",
+        fill="#0f172a",
+        outline="#334155",
+        title_color="#94a3b8",
+        value_color="#f8fafc",
+        height=68,
+        radius=16,
+    ):
+        super().__init__(
+            parent,
+            height=height,
+            bg=parent.cget("bg"),
+            bd=0,
+            highlightthickness=0,
+            relief="flat",
+        )
         self._title = title
         self._value = value
         self._fill = fill
@@ -39,21 +61,60 @@ class RoundedInfoCard(tk.Canvas):
 
     def _draw(self):
         self.delete("all")
-        w=max(self.winfo_width(), 2)
-        h=max(self.winfo_height(), 2)
-        r=min(self._radius, w//2, h//2)
-        x1,y1,x2,y2=1,1,w-1,h-1
-        points=[
-            x1+r,y1, x2-r,y1, x2,y1, x2,y1+r,
-            x2,y2-r, x2,y2, x2-r,y2, x1+r,y2,
-            x1,y2, x1,y2-r, x1,y1+r, x1,y1,
+        w = max(self.winfo_width(), 2)
+        h = max(self.winfo_height(), 2)
+        r = min(self._radius, w // 2, h // 2)
+        x1, y1, x2, y2 = 1, 1, w - 1, h - 1
+        points = [
+            x1 + r,
+            y1,
+            x2 - r,
+            y1,
+            x2,
+            y1,
+            x2,
+            y1 + r,
+            x2,
+            y2 - r,
+            x2,
+            y2,
+            x2 - r,
+            y2,
+            x1 + r,
+            y2,
+            x1,
+            y2,
+            x1,
+            y2 - r,
+            x1,
+            y1 + r,
+            x1,
+            y1,
         ]
-        self.create_polygon(points, smooth=True, splinesteps=36,
-                            fill=self._fill, outline=self._outline, width=1)
-        self.create_text(14, 16, text=self._title, anchor="w",
-                         fill=self._title_color, font=("Segoe UI", 8, "bold"))
-        self.create_text(14, 42, text=self._value, anchor="w",
-                         fill=self._value_color, font=("Segoe UI", 10, "bold"))
+        self.create_polygon(
+            points,
+            smooth=True,
+            splinesteps=36,
+            fill=self._fill,
+            outline=self._outline,
+            width=1,
+        )
+        self.create_text(
+            14,
+            16,
+            text=self._title,
+            anchor="w",
+            fill=self._title_color,
+            font=("Segoe UI", 8, "bold"),
+        )
+        self.create_text(
+            14,
+            42,
+            text=self._value,
+            anchor="w",
+            fill=self._value_color,
+            font=("Segoe UI", 10, "bold"),
+        )
 
 
 class GCPPicker:
@@ -76,6 +137,7 @@ class GCPPicker:
         self.root.geometry("1450x900")
         self.root.minsize(1050, 680)
         self.root.configure(bg=self.BG)
+        self.set_app_icon()
 
         self.image = None
         self.tk_image = None
@@ -114,6 +176,24 @@ class GCPPicker:
         self.build_ui()
         self.bind_shortcuts()
 
+    def set_app_icon(self):
+        """Set the window/taskbar icon without failing if an asset is missing."""
+        png_path = resource_path("app_icon.png")
+        ico_path = resource_path("app_icon.ico")
+
+        try:
+            # iconphoto is portable and keeps the PhotoImage alive on the instance.
+            if png_path.exists():
+                self.app_icon = tk.PhotoImage(file=str(png_path))
+                self.root.iconphoto(True, self.app_icon)
+
+            # On Windows, .ico also improves title-bar/taskbar presentation.
+            if sys.platform.startswith("win") and ico_path.exists():
+                self.root.iconbitmap(default=str(ico_path))
+        except tk.TclError:
+            # The application should still start if an OS/window manager rejects an icon.
+            pass
+
     # =========================================================
     # UI helpers
     # =========================================================
@@ -133,8 +213,8 @@ class GCPPicker:
             padx=12,
             pady=6,
             font=("Segoe UI", 9, "bold"),
-            cursor="hand2",)
-
+            cursor="hand2",
+        )
 
     def make_zoom_button(self, parent, text, command, tooltip):
         button = self.make_button(parent, text, command)
@@ -150,7 +230,17 @@ class GCPPicker:
         self.tooltip = tk.Toplevel(self.root)
         self.tooltip.wm_overrideredirect(True)
         self.tooltip.wm_geometry(f"+{x}+{y}")
-        tk.Label(self.tooltip, text=text, bg="#0f172a", fg=self.TEXT, relief="solid", bd=1, padx=8, pady=4, font=("Segoe UI", 9)).pack()
+        tk.Label(
+            self.tooltip,
+            text=text,
+            bg="#0f172a",
+            fg=self.TEXT,
+            relief="solid",
+            bd=1,
+            padx=8,
+            pady=4,
+            font=("Segoe UI", 9),
+        ).pack()
 
     def hide_tooltip(self):
         tooltip = getattr(self, "tooltip", None)
@@ -187,10 +277,10 @@ class GCPPicker:
             anchor="w",
             bg=self.PANEL,
             fg="#e5e7eb",
-            font=("Segoe UI", 9, "bold"),).pack(side="left")
+            font=("Segoe UI", 9, "bold"),
+        ).pack(side="left")
 
-        self.make_entry(row, variable).pack(
-            side="left", fill="x", expand=True, ipady=5)
+        self.make_entry(row, variable).pack(side="left", fill="x", expand=True, ipady=5)
 
     # =========================================================
     # UI
@@ -200,18 +290,14 @@ class GCPPicker:
         toolbar = tk.Frame(self.root, bg=self.PANEL, height=56)
         toolbar.pack(fill="x")
         toolbar.pack_propagate(False)
-        self.open_button = self.make_button(
-            toolbar, "Open Folder", self.open_image, self.BLUE )
-        self.prev_button = self.make_button(
-            toolbar, "◀ Previous", self.previous_image)
-        self.next_button = self.make_button(
-            toolbar, "Next ▶", self.next_image)
-        self.add_button = self.make_button(
-            toolbar, "+ Add", self.add_observation, self.GREEN)
+        self.open_button = self.make_button(toolbar, "Open Folder", self.open_image, self.BLUE)
+        self.prev_button = self.make_button(toolbar, "◀ Previous", self.previous_image)
+        self.next_button = self.make_button(toolbar, "Next ▶", self.next_image)
+        self.add_button = self.make_button(toolbar, "+ Add", self.add_observation, self.GREEN)
         self.add_next_button = self.make_button(
-            toolbar, "+ Add & Next", self.add_and_next, "#047857")
-        self.export_button = self.make_button(
-            toolbar, "Export TXT", self.export_txt, self.PURPLE)
+            toolbar, "+ Add & Next", self.add_and_next, "#047857"
+        )
+        self.export_button = self.make_button(toolbar, "Export TXT", self.export_txt, self.PURPLE)
 
         self.open_button.pack(side="left", padx=(10, 4), pady=9)
         self.prev_button.pack(side="left", padx=4, pady=9)
@@ -220,12 +306,8 @@ class GCPPicker:
         self.add_next_button.pack(side="left", padx=4, pady=9)
         self.export_button.pack(side="left", padx=(14, 4), pady=9)
 
-        self.make_button(toolbar, "Fit", self.fit_image).pack(
-            side="left", padx=(14, 4), pady=9
-        )
-        self.make_button(toolbar, "100%", self.actual_size).pack(
-            side="left", padx=4, pady=9
-        )
+        self.make_button(toolbar, "Fit", self.fit_image).pack(side="left", padx=(14, 4), pady=9)
+        self.make_button(toolbar, "100%", self.actual_size).pack(side="left", padx=4, pady=9)
         self.zoom_out_button = self.make_zoom_button(toolbar, "−", self.zoom_out, "Zoom out")
         self.zoom_out_button.pack(side="left", padx=(10, 2), pady=9)
         self.zoom_in_button = self.make_zoom_button(toolbar, "+", self.zoom_in, "Zoom in")
@@ -246,8 +328,12 @@ class GCPPicker:
         # Draggable divider between the image and information panels.
         # Resizing these panels NEVER changes self.scale.
         self.main_panes = tk.PanedWindow(
-            body, orient="horizontal", bg="#374151", sashwidth=6,
-            sashrelief="flat", bd=0,
+            body,
+            orient="horizontal",
+            bg="#374151",
+            sashwidth=6,
+            sashrelief="flat",
+            bd=0,
         )
         self.main_panes.pack(fill="both", expand=True)
 
@@ -261,7 +347,9 @@ class GCPPicker:
         self.build_control_panel(right)
 
         # Start with a sensible right-panel width. The user can drag the sash.
-        self.root.after_idle(lambda: self.main_panes.sash_place(0, max(self.root.winfo_width() - 410, 400), 0))
+        self.root.after_idle(
+            lambda: self.main_panes.sash_place(0, max(self.root.winfo_width() - 410, 400), 0)
+        )
 
         self.update_navigation_buttons()
 
@@ -270,8 +358,13 @@ class GCPPicker:
         header.pack(fill="x", pady=(0, 10))
 
         info_card = tk.Frame(
-            header, bg="#0f172a", highlightbackground="#1e293b",
-            highlightthickness=1, bd=0, padx=14, pady=12,
+            header,
+            bg="#0f172a",
+            highlightbackground="#1e293b",
+            highlightthickness=1,
+            bd=0,
+            padx=14,
+            pady=12,
         )
         info_card.pack(fill="x")
 
@@ -279,23 +372,38 @@ class GCPPicker:
         top_row.pack(fill="x")
 
         self.filename_label = tk.Label(
-            top_row, text="No image loaded", bg="#0f172a", fg=self.TEXT,
-            font=("Segoe UI", 12, "bold"), anchor="w", justify="left",
+            top_row,
+            text="No image loaded",
+            bg="#0f172a",
+            fg=self.TEXT,
+            font=("Segoe UI", 12, "bold"),
+            anchor="w",
+            justify="left",
         )
         self.filename_label.pack(side="left", fill="x", expand=True)
 
         counter_wrap = tk.Frame(top_row, bg="#1d4ed8", bd=0)
         counter_wrap.pack(side="right", padx=(10, 0))
         self.counter_label = tk.Label(
-            counter_wrap, text="", bg="#1d4ed8", fg="white",
-            font=("Segoe UI", 9, "bold"), padx=10, pady=4,
+            counter_wrap,
+            text="",
+            bg="#1d4ed8",
+            fg="white",
+            font=("Segoe UI", 9, "bold"),
+            padx=10,
+            pady=4,
         )
         self.counter_label.pack()
 
         self.info_label = tk.Label(
-            info_card, text="Open an image and click the center of the GCP.",
-            bg="#0f172a", fg=self.MUTED, anchor="w", justify="left",
-            font=("Segoe UI", 9), pady=6,
+            info_card,
+            text="Open an image and click the center of the GCP.",
+            bg="#0f172a",
+            fg=self.MUTED,
+            anchor="w",
+            justify="left",
+            font=("Segoe UI", 9),
+            pady=6,
         )
         self.info_label.pack(fill="x")
 
@@ -305,26 +413,47 @@ class GCPPicker:
         meta_row.columnconfigure(1, weight=1, uniform="meta")
 
         self.raster_card = RoundedInfoCard(
-            meta_row, "RASTER SIZE", fill="#062c2a", outline="#0f766e",
-            title_color="#99f6e4", value_color="#ecfeff", height=68, radius=18,
+            meta_row,
+            "RASTER SIZE",
+            fill="#062c2a",
+            outline="#0f766e",
+            title_color="#99f6e4",
+            value_color="#ecfeff",
+            height=68,
+            radius=18,
         )
         self.raster_card.grid(row=0, column=0, sticky="ew", padx=(0, 5))
 
         self.band_card = RoundedInfoCard(
-            meta_row, "BANDS", fill="#172554", outline="#2563eb",
-            title_color="#bfdbfe", value_color="#eff6ff", height=68, radius=18,
+            meta_row,
+            "BANDS",
+            fill="#172554",
+            outline="#2563eb",
+            title_color="#bfdbfe",
+            value_color="#eff6ff",
+            height=68,
+            radius=18,
         )
         self.band_card.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
         self.pixel_card = RoundedInfoCard(
-            info_card, "SELECTED PIXEL", fill="#3b2608", outline="#d97706",
-            title_color="#fcd34d", value_color="#fff7ed", height=76, radius=18,
+            info_card,
+            "SELECTED PIXEL",
+            fill="#3b2608",
+            outline="#d97706",
+            title_color="#fcd34d",
+            value_color="#fff7ed",
+            height=76,
+            radius=18,
         )
         self.pixel_card.pack(fill="x", pady=(10, 0))
 
         self.canvas = tk.Canvas(
-            parent, bg=self.CANVAS_BG, cursor="cross",
-            highlightthickness=1, highlightbackground="#374151",
+            parent,
+            bg=self.CANVAS_BG,
+            cursor="cross",
+            highlightthickness=1,
+            highlightbackground="#374151",
             highlightcolor="#3b82f6",
         )
         self.canvas.pack(fill="both", expand=True)
@@ -347,13 +476,23 @@ class GCPPicker:
 
     def build_image_context_menu(self):
         self.image_context_menu = tk.Menu(
-            self.root, tearoff=False, bg="#111827", fg="#f8fafc",
-            activebackground="#2563eb", activeforeground="white",
-            disabledforeground="#64748b", relief="flat", bd=1,
+            self.root,
+            tearoff=False,
+            bg="#111827",
+            fg="#f8fafc",
+            activebackground="#2563eb",
+            activeforeground="white",
+            disabledforeground="#64748b",
+            relief="flat",
+            bd=1,
             font=("Segoe UI", 9),
         )
         menu = self.image_context_menu
-        menu.add_command(label="Add observation", accelerator="Ctrl+Shift+A", command=self.add_observation)
+        menu.add_command(
+            label="Add observation",
+            accelerator="Ctrl+Shift+A",
+            command=self.add_observation,
+        )
         menu.add_command(label="Add & Next", accelerator="Ctrl+Shift+N", command=self.add_and_next)
         menu.add_separator()
         menu.add_command(label="Image metadata", accelerator="I", command=self.show_image_metadata)
@@ -372,8 +511,13 @@ class GCPPicker:
             return
         self.image_context_menu.entryconfig(0, state="normal" if self.selected else "disabled")
         self.image_context_menu.entryconfig(1, state="normal" if self.selected else "disabled")
-        self.image_context_menu.entryconfig(9, state="normal" if self.current_index > 0 else "disabled")
-        self.image_context_menu.entryconfig(10, state="normal" if self.current_index < len(self.image_files) - 1 else "disabled")
+        self.image_context_menu.entryconfig(
+            9, state="normal" if self.current_index > 0 else "disabled"
+        )
+        self.image_context_menu.entryconfig(
+            10,
+            state="normal" if self.current_index < len(self.image_files) - 1 else "disabled",
+        )
         self.image_context_menu.entryconfig(12, state="normal" if self.records else "disabled")
         try:
             self.image_context_menu.tk_popup(event.x_root, event.y_root)
@@ -390,8 +534,7 @@ class GCPPicker:
             size_text = "Unavailable"
 
         selected = (
-            f"X = {self.selected[0]:.3f}, Y = {self.selected[1]:.3f}"
-            if self.selected else "None"
+            f"X = {self.selected[0]:.3f}, Y = {self.selected[1]:.3f}" if self.selected else "None"
         )
         bands = ", ".join(self.band_names) if self.band_names else str(self.band_count)
         details = (
@@ -429,11 +572,11 @@ class GCPPicker:
         form.pack(fill="x", padx=14)
 
         for title, variable in (
-                ("X / Longitude", self.x_var),
-                ("Y / Latitude", self.y_var),
-                ("Z / Elevation", self.z_var),
-                ("Label", self.label_var),
-                ("CRS", self.crs_var),
+            ("X / Longitude", self.x_var),
+            ("Y / Latitude", self.y_var),
+            ("Z / Elevation", self.z_var),
+            ("Label", self.label_var),
+            ("CRS", self.crs_var),
         ):
             self.form_row(form, title, variable)
 
@@ -470,15 +613,21 @@ class GCPPicker:
 
         stats = tk.Frame(parent, bg=self.PANEL)
         stats.pack(fill="x", padx=14)
-        tk.Label(stats, text="Records", bg=self.PANEL, fg="#86efac",
-                 font=("Segoe UI", 10, "bold"), ).pack(side="left")
+        tk.Label(
+            stats,
+            text="Records",
+            bg=self.PANEL,
+            fg="#86efac",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(side="left")
 
         self.obs_count_label = tk.Label(
             stats,
             text="0",
             bg=self.PANEL,
             fg=self.MUTED,
-            font=("Segoe UI", 10, "bold"), )
+            font=("Segoe UI", 10, "bold"),
+        )
         self.obs_count_label.pack(side="right")
 
         self.group_label = tk.Label(
@@ -498,29 +647,33 @@ class GCPPicker:
             table_frame,
             columns=("suffix", "label", "image", "pixel"),
             show="headings",
-            height=12, )
+            height=12,
+        )
 
         headings = {
             "suffix": ("Type", 50),
             "label": ("GCP", 60),
             "image": ("Image", 150),
-            "pixel": ("Pixel", 100), }
+            "pixel": ("Pixel", 100),
+        }
 
         for column, (title, width) in headings.items():
             self.tree.heading(column, text=title)
             self.tree.column(
                 column,
                 width=width,
-                anchor="center" if column == "suffix" else "w", )
+                anchor="center" if column == "suffix" else "w",
+            )
 
-        scrollbar = ttk.Scrollbar(
-            table_frame, orient="vertical", command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         actions = tk.Frame(parent, bg=self.PANEL)
         actions.pack(fill="x", padx=14, pady=(0, 14))
-        self.make_button(actions, "Delete Selected", self.delete_selected, self.RED).pack(side="left")
+        self.make_button(actions, "Delete Selected", self.delete_selected, self.RED).pack(
+            side="left"
+        )
         self.make_button(actions, "Clear All", self.clear_all).pack(side="right")
 
     # =========================================================
@@ -541,8 +694,11 @@ class GCPPicker:
 
         try:
             self.image_files = sorted(
-                (p.resolve() for p in folder.iterdir()
-                 if p.is_file() and p.suffix.lower() in supported),
+                (
+                    p.resolve()
+                    for p in folder.iterdir()
+                    if p.is_file() and p.suffix.lower() in supported
+                ),
                 key=lambda p: p.name.lower(),
             )
         except OSError as error:
@@ -571,7 +727,8 @@ class GCPPicker:
         threading.Thread(
             target=self.load_image_worker,
             args=(Path(path),),
-            daemon=True, ).start()
+            daemon=True,
+        ).start()
 
     def load_image_worker(self, path):
         try:
@@ -625,7 +782,10 @@ class GCPPicker:
 
     def loading_failed(self, error):
         self.loading = False
-        self.info_label.config(text=f"Could not open image: {error}", fg="#fca5a5", )
+        self.info_label.config(
+            text=f"Could not open image: {error}",
+            fg="#fca5a5",
+        )
         self.raster_card.set_value("--")
         self.band_card.set_value("--")
         self.pixel_card.set_value("--")
@@ -636,9 +796,7 @@ class GCPPicker:
     # =========================================================
 
     def next_image(self):
-        if (self.loading
-                or not self.image_files
-                or self.current_index >= len(self.image_files) - 1):
+        if self.loading or not self.image_files or self.current_index >= len(self.image_files) - 1:
             return
         self.current_index += 1
         self.load_image(self.image_files[self.current_index])
@@ -653,18 +811,18 @@ class GCPPicker:
         text = (
             f"{self.current_index + 1} / {len(self.image_files)}"
             if self.image_files and self.current_index >= 0
-            else "")
+            else ""
+        )
         self.counter_label.config(text=text)
 
     def update_navigation_buttons(self):
-        previous = (
-                bool(self.image_files)
-                and self.current_index > 0
-                and not self.loading)
+        previous = bool(self.image_files) and self.current_index > 0 and not self.loading
 
-        following = (bool(self.image_files)
-                     and 0 <= self.current_index < len(self.image_files) - 1
-                     and not self.loading)
+        following = (
+            bool(self.image_files)
+            and 0 <= self.current_index < len(self.image_files) - 1
+            and not self.loading
+        )
 
         self.prev_button.config(state="normal" if previous else "disabled")
         self.next_button.config(state="normal" if following else "disabled")
@@ -680,7 +838,8 @@ class GCPPicker:
             self.x_var.get(),
             self.y_var.get(),
             self.z_var.get(),
-            self.label_var.get(), )
+            self.label_var.get(),
+        )
 
     def update_description(self):
         record = self.current_record()
@@ -698,13 +857,15 @@ class GCPPicker:
         if self.selected is None:
             messagebox.showwarning(
                 "No GCP selected",
-                "Click the center of the GCP first.", )
+                "Click the center of the GCP first.",
+            )
             return False
         xyz = tuple(var.get().strip() for var in (self.x_var, self.y_var, self.z_var))
         if any(xyz) and not all(xyz):
             messagebox.showwarning(
                 "Incomplete coordinates",
-                "Provide X, Y and Z together, or leave all three blank.", )
+                "Provide X, Y and Z together, or leave all three blank.",
+            )
             return False
         record = self.current_record()
         if record is None:
@@ -728,7 +889,8 @@ class GCPPicker:
         else:
             self.info_label.config(
                 text="Observation added. This is the last image.",
-                fg=self.YELLOW, )
+                fg=self.YELLOW,
+            )
 
     def refresh_record_table(self):
         self.tree.delete(*self.tree.get_children())
@@ -739,12 +901,18 @@ class GCPPicker:
                 item = self.tree.insert(
                     "",
                     "end",
-                    values=( suffix,label or "—",filename,f"{px:.3f}, {py:.3f}",), )
+                    values=(
+                        suffix,
+                        label or "—",
+                        filename,
+                        f"{px:.3f}, {py:.3f}",
+                    ),
+                )
                 self.tree_records[item] = (suffix, record)
         self.obs_count_label.config(text=str(total_records(self.records)))
         groups = "   ".join(
-            f"{suffix}: {len(records)}"
-            for suffix, records in sorted(self.records.items()))
+            f"{suffix}: {len(records)}" for suffix, records in sorted(self.records.items())
+        )
         self.group_label.config(text=f"Groups: {groups}" if groups else "Groups: --")
 
     def delete_selected(self):
@@ -760,8 +928,9 @@ class GCPPicker:
         if not self.records:
             return
         if not messagebox.askyesno(
-                "Clear all observations",
-                "Delete every saved observation?", ):
+            "Clear all observations",
+            "Delete every saved observation?",
+        ):
             return
         self.records.clear()
         self.refresh_record_table()
@@ -774,7 +943,8 @@ class GCPPicker:
         if not self.records:
             messagebox.showwarning(
                 "Nothing to export",
-                "Add at least one observation first.", )
+                "Add at least one observation first.",
+            )
             return
 
         self.show_export_dialog(sorted(self.records))
@@ -792,36 +962,42 @@ class GCPPicker:
             text="Choose what to export",
             bg=self.PANEL,
             fg=self.TEXT,
-            font=("Segoe UI", 12, "bold"), ).pack(padx=25, pady=(20, 5))
+            font=("Segoe UI", 12, "bold"),
+        ).pack(padx=25, pady=(20, 5))
 
         tk.Label(
             dialog,
             text="Records are grouped strictly by file extension.",
             bg=self.PANEL,
             fg=self.MUTED,
-            font=("Segoe UI", 9),).pack(padx=25, pady=(0, 15))
+            font=("Segoe UI", 9),
+        ).pack(padx=25, pady=(0, 15))
 
         self.make_button(
             dialog,
             f"Export ALL ({total_records(self.records)})",
             lambda: self.export_group(dialog),
-            self.PURPLE,).pack(fill="x", padx=25, pady=4)
+            self.PURPLE,
+        ).pack(fill="x", padx=25, pady=4)
 
         for suffix in suffixes:
             count = len(self.records[suffix])
-            self.make_button(  dialog,
+            self.make_button(
+                dialog,
                 f"Export {suffix} ({count})",
                 lambda s=suffix: self.export_group(dialog, s),
-                self.BLUE, ).pack(fill="x", padx=25, pady=4)
+                self.BLUE,
+            ).pack(fill="x", padx=25, pady=4)
 
-        self.make_button(dialog,
-            "Cancel",dialog.destroy, ).pack(fill="x", padx=25, pady=(10, 20))
+        self.make_button(
+            dialog,
+            "Cancel",
+            dialog.destroy,
+        ).pack(fill="x", padx=25, pady=(10, 20))
 
         dialog.update_idletasks()
-        x = self.root.winfo_rootx() + (
-                self.root.winfo_width() - dialog.winfo_width()) // 2
-        y = self.root.winfo_rooty() + (
-                self.root.winfo_height() - dialog.winfo_height()) // 2
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - dialog.winfo_width()) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - dialog.winfo_height()) // 2
 
         dialog.geometry(f"+{x}+{y}")
 
@@ -842,7 +1018,9 @@ class GCPPicker:
             initialfile=default_name,
             filetypes=[
                 ("Text file", "*.txt"),
-                ("All files", "*.*"),], )
+                ("All files", "*.*"),
+            ],
+        )
 
         if not path:
             return
@@ -854,7 +1032,8 @@ class GCPPicker:
             return
         messagebox.showinfo(
             "Export complete",
-            f"Exported {len(records)} record(s) from {description}.\n\n{path}", )
+            f"Exported {len(records)} record(s) from {description}.\n\n{path}",
+        )
 
     # =========================================================
     # Pixel selection
@@ -893,7 +1072,10 @@ class GCPPicker:
         iw = self.source_width
         ih = self.source_height
         margin = 20
-        self.scale = min(max(cw - margin * 2, 1) / iw,max(ch - margin * 2, 1) / ih,)
+        self.scale = min(
+            max(cw - margin * 2, 1) / iw,
+            max(ch - margin * 2, 1) / ih,
+        )
         self.min_scale = self.scale * 0.25
         self.max_scale = max(20.0, self.scale * 100)
         self.offset_x = (cw - iw * self.scale) / 2
@@ -946,20 +1128,25 @@ class GCPPicker:
             self.zoom_at(
                 event.x,
                 event.y,
-                1.20 if event.delta > 0 else 1 / 1.20,)
+                1.20 if event.delta > 0 else 1 / 1.20,
+            )
 
     def mouse_zoom_linux(self, event):
         if self.image is not None:
             self.zoom_at(
                 event.x,
                 event.y,
-                1.20 if event.num == 4 else 1 / 1.20,)
+                1.20 if event.num == 4 else 1 / 1.20,
+            )
 
     def zoom_at(self, mouse_x, mouse_y, factor):
         if self.image is None:
             return
         old_scale = self.scale
-        new_scale = max(self.min_scale, min(old_scale * factor, self.max_scale), )
+        new_scale = max(
+            self.min_scale,
+            min(old_scale * factor, self.max_scale),
+        )
         if new_scale == old_scale:
             return
         image_x = (mouse_x - self.offset_x) / old_scale
@@ -972,7 +1159,12 @@ class GCPPicker:
     def start_pan(self, event):
         if self.image is None:
             return
-        self.pan_start = ( event.x, event.y, self.offset_x, self.offset_y,)
+        self.pan_start = (
+            event.x,
+            event.y,
+            self.offset_x,
+            self.offset_y,
+        )
         self.canvas.config(cursor="fleur")
 
     def pan(self, event):
@@ -999,8 +1191,14 @@ class GCPPicker:
         cw, ch = self.canvas.winfo_width(), self.canvas.winfo_height()
         left = max(0, int(-self.offset_x / self.scale))
         top = max(0, int(-self.offset_y / self.scale))
-        right = min(iw, int((cw - self.offset_x) / self.scale) + 2, )
-        bottom = min(ih, int((ch - self.offset_y) / self.scale) + 2, )
+        right = min(
+            iw,
+            int((cw - self.offset_x) / self.scale) + 2,
+        )
+        bottom = min(
+            ih,
+            int((ch - self.offset_y) / self.scale) + 2,
+        )
         self.canvas.delete("all")
         if right <= left or bottom <= top:
             return
@@ -1008,13 +1206,12 @@ class GCPPicker:
         crop = self.image.crop((left, top, right, bottom))
         display_width = max(int((right - left) * self.scale), 1)
         display_height = max(int((bottom - top) * self.scale), 1)
-        resample = (Image.Resampling.NEAREST
-                    if self.scale >= 4
-                    else Image.Resampling.LANCZOS)
+        resample = Image.Resampling.NEAREST if self.scale >= 4 else Image.Resampling.LANCZOS
 
         crop = crop.resize(
             (display_width, display_height),
-            resample, )
+            resample,
+        )
 
         self.tk_image = ImageTk.PhotoImage(crop)
         canvas_x = self.offset_x + left * self.scale
@@ -1023,11 +1220,11 @@ class GCPPicker:
             canvas_x,
             canvas_y,
             anchor="nw",
-            image=self.tk_image, )
+            image=self.tk_image,
+        )
         if self.selected is not None:
             self.draw_marker(*self.selected)
-        self.zoom_label.config(
-            text=f"Zoom: {self.scale * 100:.1f}%")
+        self.zoom_label.config(text=f"Zoom: {self.scale * 100:.1f}%")
 
     def draw_marker(self, x, y):
         cx = self.offset_x + x * self.scale
@@ -1035,24 +1232,40 @@ class GCPPicker:
         radius = 18
 
         self.canvas.create_line(
-            cx - radius, cy,
-            cx + radius, cy,
+            cx - radius,
+            cy,
+            cx + radius,
+            cy,
             fill="#ef4444",
-            width=2, )
+            width=2,
+        )
 
-        self.canvas.create_line(cx, cy - radius, cx, cy + radius, fill="#ef4444", width=2,)
+        self.canvas.create_line(
+            cx,
+            cy - radius,
+            cx,
+            cy + radius,
+            fill="#ef4444",
+            width=2,
+        )
 
         self.canvas.create_oval(
-            cx - 5, cy - 5,
-            cx + 5, cy + 5,
+            cx - 5,
+            cy - 5,
+            cx + 5,
+            cy + 5,
             outline="#fde047",
-            width=2, )
+            width=2,
+        )
 
-        self.canvas.create_text(cx + 13, cy - 15,
-                                text=f"X={x:.3f}  Y={y:.3f}",
-                                anchor="sw",
-                                fill="#fde047",
-                                font=("Segoe UI", 10, "bold"), )
+        self.canvas.create_text(
+            cx + 13,
+            cy - 15,
+            text=f"X={x:.3f}  Y={y:.3f}",
+            anchor="sw",
+            fill="#fde047",
+            font=("Segoe UI", 10, "bold"),
+        )
 
     def canvas_resized(self, event):
         if self.image is None:

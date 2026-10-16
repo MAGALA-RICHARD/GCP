@@ -1,5 +1,5 @@
-from pathlib import Path
 import re
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -12,12 +12,19 @@ except ImportError:
     rasterio = None
     RASTERIO_AVAILABLE = False
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", }
+IMAGE_EXTENSIONS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".tif",
+    ".tiff",
+}
 
 
 # ============================================================
 # File discovery
 # ============================================================
+
 
 def natural_sort_key(path):
     """
@@ -50,8 +57,11 @@ def discover_folder_images(selected_path):
     selected_path = Path(selected_path).resolve()
     folder = selected_path.parent
 
-    files = [path.resolve() for path in folder.iterdir() if
-             (path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS)]
+    files = [
+        path.resolve()
+        for path in folder.iterdir()
+        if (path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS)
+    ]
 
     if selected_path not in files:
         files.append(selected_path)
@@ -63,6 +73,7 @@ def discover_folder_images(selected_path):
 # ============================================================
 # Raster / image loading
 # ============================================================
+
 
 def normalize_band(array):
     """
@@ -140,11 +151,13 @@ def load_pillow_image(path):
     if source.mode not in ("RGB", "RGBA"):
         source = source.convert("RGB")
 
-    return {"image": source,
-            "width": width,
-            "height": height,
-            "bands": len(source.getbands()),
-            "band_names": list(source.getbands()), }
+    return {
+        "image": source,
+        "width": width,
+        "height": height,
+        "bands": len(source.getbands()),
+        "band_names": list(source.getbands()),
+    }
 
 
 def load_raster_image(path):
@@ -157,8 +170,8 @@ def load_raster_image(path):
         width, height, count = src.width, src.height, src.count
 
         descriptions = [
-            desc.strip() if desc else f"Band {i + 1}"
-            for i, desc in enumerate(src.descriptions)]
+            desc.strip() if desc else f"Band {i + 1}" for i, desc in enumerate(src.descriptions)
+        ]
 
         if count == 1:
             band = normalize_band(src.read(1))
@@ -173,11 +186,13 @@ def load_raster_image(path):
 
             rgb = np.stack(bands[:3], axis=-1)
 
-        return {"image": Image.fromarray(rgb.astype(np.uint8), mode="RGB"),
-                "width": width,
-                "height": height,
-                "bands": count,
-                "band_names": descriptions, }
+        return {
+            "image": Image.fromarray(rgb.astype(np.uint8), mode="RGB"),
+            "width": width,
+            "height": height,
+            "bands": count,
+            "band_names": descriptions,
+        }
 
 
 def load_image_data(path):
@@ -192,6 +207,7 @@ def load_image_data(path):
 # Record handling
 # ============================================================
 
+
 def create_record(selected, image_path, x_value, y_value, z_value, label):
     """Create a GCP record from map coordinates, pixel coordinates, image name, and label."""
     if selected is None or image_path is None:
@@ -201,7 +217,15 @@ def create_record(selected, image_path, x_value, y_value, z_value, label):
     if any((gx, gy, gz)) and not all((gx, gy, gz)):
         return None
     pixel_x, pixel_y = selected
-    return gx, gy, gz, round(float(pixel_x), 3), round(float(pixel_y), 3), Path(image_path).name, label,
+    return (
+        gx,
+        gy,
+        gz,
+        round(float(pixel_x), 3),
+        round(float(pixel_y), 3),
+        Path(image_path).name,
+        label,
+    )
 
 
 def format_record(record):
@@ -210,10 +234,13 @@ def format_record(record):
     parts = []
     if all((gx, gy, gz)):
         parts.extend((gx, gy, gz))
-    parts.extend((
-        f"{pixel_x:.3f}",
-        f"{pixel_y:.3f}",
-        filename,))
+    parts.extend(
+        (
+            f"{pixel_x:.3f}",
+            f"{pixel_y:.3f}",
+            filename,
+        )
+    )
     if label:
         parts.append(label)
     return " ".join(parts)
@@ -228,7 +255,8 @@ def record_sort_key(record):
         record[5].lower(),
         record[6].lower(),
         record[3],
-        record[4],)
+        record[4],
+    )
 
 
 def add_record(records, record):
@@ -285,6 +313,7 @@ def sorted_all_records(records):
 # Export
 # ============================================================
 
+
 def export_records(path, records, crs=""):
     """
     Write GCP observations to text file.
@@ -293,9 +322,6 @@ def export_records(path, records, crs=""):
     with path.open("w", encoding="utf-8") as file:
         crs = crs.strip()
         if crs:
-            file.write(
-                crs + "\n")
+            file.write(crs + "\n")
         for record in records:
-            file.write(
-                format_record(record)
-                + "\n")
+            file.write(format_record(record) + "\n")
