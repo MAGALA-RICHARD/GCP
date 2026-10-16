@@ -19,6 +19,43 @@ from helpers import (
 )
 
 
+class RoundedInfoCard(tk.Canvas):
+    def __init__(self, parent, title, value="--", fill="#0f172a", outline="#334155",
+                 title_color="#94a3b8", value_color="#f8fafc", height=68, radius=16):
+        super().__init__(parent, height=height, bg=parent.cget("bg"), bd=0,
+                         highlightthickness=0, relief="flat")
+        self._title = title
+        self._value = value
+        self._fill = fill
+        self._outline = outline
+        self._title_color = title_color
+        self._value_color = value_color
+        self._radius = radius
+        self.bind("<Configure>", lambda _e: self._draw())
+
+    def set_value(self, value):
+        self._value = value
+        self._draw()
+
+    def _draw(self):
+        self.delete("all")
+        w=max(self.winfo_width(), 2)
+        h=max(self.winfo_height(), 2)
+        r=min(self._radius, w//2, h//2)
+        x1,y1,x2,y2=1,1,w-1,h-1
+        points=[
+            x1+r,y1, x2-r,y1, x2,y1, x2,y1+r,
+            x2,y2-r, x2,y2, x2-r,y2, x1+r,y2,
+            x1,y2, x1,y2-r, x1,y1+r, x1,y1,
+        ]
+        self.create_polygon(points, smooth=True, splinesteps=36,
+                            fill=self._fill, outline=self._outline, width=1)
+        self.create_text(14, 16, text=self._title, anchor="w",
+                         fill=self._title_color, font=("Segoe UI", 8, "bold"))
+        self.create_text(14, 42, text=self._value, anchor="w",
+                         fill=self._value_color, font=("Segoe UI", 10, "bold"))
+
+
 class GCPPicker:
     BG = "#111827"
     PANEL = "#1f2937"
@@ -233,13 +270,8 @@ class GCPPicker:
         header.pack(fill="x", pady=(0, 10))
 
         info_card = tk.Frame(
-            header,
-            bg="#0f172a",
-            highlightbackground="#1e293b",
-            highlightthickness=1,
-            bd=0,
-            padx=14,
-            pady=12,
+            header, bg="#0f172a", highlightbackground="#1e293b",
+            highlightthickness=1, bd=0, padx=14, pady=12,
         )
         info_card.pack(fill="x")
 
@@ -247,167 +279,142 @@ class GCPPicker:
         top_row.pack(fill="x")
 
         self.filename_label = tk.Label(
-            top_row,
-            text="No image loaded",
-            bg="#0f172a",
-            fg=self.TEXT,
-            font=("Segoe UI", 12, "bold"),
-            anchor="w",
-            justify="left",
+            top_row, text="No image loaded", bg="#0f172a", fg=self.TEXT,
+            font=("Segoe UI", 12, "bold"), anchor="w", justify="left",
         )
         self.filename_label.pack(side="left", fill="x", expand=True)
 
-        counter_wrap = tk.Frame(
-            top_row,
-            bg="#1d4ed8",
-            highlightbackground="#60a5fa",
-            highlightthickness=1,
-            bd=0,
-        )
+        counter_wrap = tk.Frame(top_row, bg="#1d4ed8", bd=0)
         counter_wrap.pack(side="right", padx=(10, 0))
-
         self.counter_label = tk.Label(
-            counter_wrap,
-            text="",
-            bg="#1d4ed8",
-            fg="white",
-            font=("Segoe UI", 9, "bold"),
-            padx=10,
-            pady=4,
+            counter_wrap, text="", bg="#1d4ed8", fg="white",
+            font=("Segoe UI", 9, "bold"), padx=10, pady=4,
         )
         self.counter_label.pack()
 
         self.info_label = tk.Label(
-            info_card,
-            text="Open an image and click the center of the GCP.",
-            bg="#0f172a",
-            fg=self.MUTED,
-            anchor="w",
-            justify="left",
-            font=("Segoe UI", 9),
-            pady=6,
+            info_card, text="Open an image and click the center of the GCP.",
+            bg="#0f172a", fg=self.MUTED, anchor="w", justify="left",
+            font=("Segoe UI", 9), pady=6,
         )
         self.info_label.pack(fill="x")
 
         meta_row = tk.Frame(info_card, bg="#0f172a")
         meta_row.pack(fill="x", pady=(4, 0))
+        meta_row.columnconfigure(0, weight=1, uniform="meta")
+        meta_row.columnconfigure(1, weight=1, uniform="meta")
 
-        raster_card = tk.Frame(
-            meta_row,
-            bg="#052e2b",
-            highlightbackground="#065f46",
-            highlightthickness=1,
-            bd=0,
-            padx=10,
-            pady=8,
+        self.raster_card = RoundedInfoCard(
+            meta_row, "RASTER SIZE", fill="#062c2a", outline="#0f766e",
+            title_color="#99f6e4", value_color="#ecfeff", height=68, radius=18,
         )
-        raster_card.pack(side="left", fill="x", expand=True)
+        self.raster_card.grid(row=0, column=0, sticky="ew", padx=(0, 5))
 
-        tk.Label(
-            raster_card,
-            text="RASTER SIZE",
-            bg="#052e2b",
-            fg="#86efac",
-            font=("Segoe UI", 8, "bold"),
-            anchor="w",
-        ).pack(anchor="w")
-
-        self.raster_label = tk.Label(
-            raster_card,
-            text="--",
-            bg="#052e2b",
-            fg="#ecfdf5",
-            font=("Segoe UI", 10, "bold"),
-            anchor="w",
+        self.band_card = RoundedInfoCard(
+            meta_row, "BANDS", fill="#172554", outline="#2563eb",
+            title_color="#bfdbfe", value_color="#eff6ff", height=68, radius=18,
         )
-        self.raster_label.pack(anchor="w", pady=(2, 0))
+        self.band_card.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
-        bands_card = tk.Frame(
-            meta_row,
-            bg="#172554",
-            highlightbackground="#1d4ed8",
-            highlightthickness=1,
-            bd=0,
-            padx=10,
-            pady=8,
+        self.pixel_card = RoundedInfoCard(
+            info_card, "SELECTED PIXEL", fill="#3b2608", outline="#d97706",
+            title_color="#fcd34d", value_color="#fff7ed", height=76, radius=18,
         )
-        bands_card.pack(side="left", fill="x", expand=True, padx=(8, 0))
-
-        tk.Label(
-            bands_card,
-            text="BANDS",
-            bg="#172554",
-            fg="#93c5fd",
-            font=("Segoe UI", 8, "bold"),
-            anchor="w",
-        ).pack(anchor="w")
-
-        self.band_label = tk.Label(
-            bands_card,
-            text="--",
-            bg="#172554",
-            fg="#eff6ff",
-            font=("Segoe UI", 10, "bold"),
-            anchor="w",
-        )
-        self.band_label.pack(anchor="w", pady=(2, 0))
-
-        pixel_card = tk.Frame(
-            info_card,
-            bg="#422006",
-            highlightbackground="#d97706",
-            highlightthickness=1,
-            bd=0,
-            padx=12,
-            pady=10,
-        )
-        pixel_card.pack(fill="x", pady=(10, 0))
-
-        tk.Label(
-            pixel_card,
-            text="SELECTED PIXEL",
-            bg="#422006",
-            fg="#fbbf24",
-            font=("Segoe UI", 8, "bold"),
-            anchor="w",
-        ).pack(anchor="w")
-
-        self.pixel_label = tk.Label(
-            pixel_card,
-            text="Pixel: --",
-            bg="#422006",
-            fg="#fef3c7",
-            anchor="w",
-            font=("Segoe UI", 12, "bold"),
-        )
-        self.pixel_label.pack(anchor="w", pady=(3, 0))
+        self.pixel_card.pack(fill="x", pady=(10, 0))
 
         self.canvas = tk.Canvas(
-            parent,
-            bg=self.CANVAS_BG,
-            cursor="cross",
-            highlightthickness=1,
-            highlightbackground="#374151",
+            parent, bg=self.CANVAS_BG, cursor="cross",
+            highlightthickness=1, highlightbackground="#374151",
             highlightcolor="#3b82f6",
         )
         self.canvas.pack(fill="both", expand=True)
 
         bindings = {
             "<Button-1>": self.select_point,
+            "<Button-3>": self.show_image_context_menu,
             "<MouseWheel>": self.mouse_zoom,
             "<Button-4>": self.mouse_zoom_linux,
             "<Button-5>": self.mouse_zoom_linux,
             "<ButtonPress-2>": self.start_pan,
             "<B2-Motion>": self.pan,
             "<ButtonRelease-2>": self.end_pan,
-            "<ButtonPress-3>": self.start_pan,
-            "<B3-Motion>": self.pan,
-            "<ButtonRelease-3>": self.end_pan,
             "<Configure>": self.canvas_resized,
         }
-
         for event, handler in bindings.items():
             self.canvas.bind(event, handler)
+
+        self.build_image_context_menu()
+
+    def build_image_context_menu(self):
+        self.image_context_menu = tk.Menu(
+            self.root, tearoff=False, bg="#111827", fg="#f8fafc",
+            activebackground="#2563eb", activeforeground="white",
+            disabledforeground="#64748b", relief="flat", bd=1,
+            font=("Segoe UI", 9),
+        )
+        menu = self.image_context_menu
+        menu.add_command(label="Add observation", accelerator="A", command=self.add_observation)
+        menu.add_command(label="Add & Next", accelerator="Ctrl+Enter", command=self.add_and_next)
+        menu.add_separator()
+        menu.add_command(label="Image metadata", accelerator="I", command=self.show_image_metadata)
+        menu.add_command(label="Fit image", accelerator="F", command=self.fit_image)
+        menu.add_command(label="Actual size (100%)", accelerator="0", command=self.actual_size)
+        menu.add_command(label="Zoom in", accelerator="+", command=self.zoom_in)
+        menu.add_command(label="Zoom out", accelerator="-", command=self.zoom_out)
+        menu.add_separator()
+        menu.add_command(label="Previous image", accelerator="←", command=self.previous_image)
+        menu.add_command(label="Next image", accelerator="→", command=self.next_image)
+        menu.add_separator()
+        menu.add_command(label="Export TXT", accelerator="Ctrl+E", command=self.export_txt)
+
+    def show_image_context_menu(self, event):
+        if self.image is None:
+            return
+        self.image_context_menu.entryconfig(0, state="normal" if self.selected else "disabled")
+        self.image_context_menu.entryconfig(1, state="normal" if self.selected else "disabled")
+        self.image_context_menu.entryconfig(9, state="normal" if self.current_index > 0 else "disabled")
+        self.image_context_menu.entryconfig(10, state="normal" if self.current_index < len(self.image_files) - 1 else "disabled")
+        self.image_context_menu.entryconfig(12, state="normal" if self.records else "disabled")
+        try:
+            self.image_context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.image_context_menu.grab_release()
+
+    def show_image_metadata(self):
+        if self.image is None or self.image_path is None:
+            return
+        try:
+            file_size = self.image_path.stat().st_size
+            size_text = f"{file_size / (1024 * 1024):.2f} MB"
+        except OSError:
+            size_text = "Unavailable"
+
+        selected = (
+            f"X = {self.selected[0]:.3f}, Y = {self.selected[1]:.3f}"
+            if self.selected else "None"
+        )
+        bands = ", ".join(self.band_names) if self.band_names else str(self.band_count)
+        details = (
+            f"File: {self.image_path.name}\n"
+            f"Path: {self.image_path}\n\n"
+            f"Raster size: {self.source_width} × {self.source_height} px\n"
+            f"Bands: {bands}\n"
+            f"File type: {self.image_path.suffix.lower() or 'Unknown'}\n"
+            f"File size: {size_text}\n"
+            f"Zoom: {self.scale * 100:.1f}%\n"
+            f"Selected pixel: {selected}\n"
+            f"Image position: {self.current_index + 1} of {len(self.image_files)}"
+        )
+        messagebox.showinfo("Image Metadata", details, parent=self.root)
+
+    def _shortcut_allowed(self, event):
+        return not isinstance(event.widget, (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox))
+
+    def _run_shortcut(self, event, command):
+        if self._shortcut_allowed(event):
+            command()
+            return "break"
+        return None
 
     def build_control_panel(self, parent):
         tk.Label(
@@ -591,13 +598,12 @@ class GCPPicker:
             fg="#cbd5e1",
         )
 
-        self.raster_label.config(text=f"{self.source_width} × {self.source_height} px")
-        self.band_label.config(text=(
-            ", ".join(self.band_names)
-            if self.band_names
-            else str(self.band_count)))
+        self.raster_card.set_value(f"{self.source_width} × {self.source_height} px")
+        self.band_card.set_value(
+            ", ".join(self.band_names) if self.band_names else str(self.band_count)
+        )
 
-        self.pixel_label.config(text="Pixel: --")
+        self.pixel_card.set_value("--")
 
         self.update_description()
         self.update_counter()
@@ -609,9 +615,9 @@ class GCPPicker:
     def loading_failed(self, error):
         self.loading = False
         self.info_label.config(text=f"Could not open image: {error}", fg="#fca5a5", )
-        self.raster_label.config(text="--")
-        self.band_label.config(text="--")
-        self.pixel_label.config(text="Pixel: --")
+        self.raster_card.set_value("--")
+        self.band_card.set_value("--")
+        self.pixel_card.set_value("--")
         self.update_navigation_buttons()
 
     # =========================================================
@@ -853,8 +859,7 @@ class GCPPicker:
         x = min(max(float(x), 0.0), self.source_width - 1.0)
         y = min(max(float(y), 0.0), self.source_height - 1.0)
         self.selected = (x, y)
-        self.pixel_label.config(
-            text=f"Pixel: X = {x:.3f}     Y = {y:.3f}")
+        self.pixel_card.set_value(f"X = {x:.3f}    Y = {y:.3f}")
 
         self.info_label.config(
             text="GCP center selected. Review the coordinates on the right, then click Add to save.",
@@ -1050,9 +1055,28 @@ class GCPPicker:
     # =========================================================
 
     def bind_shortcuts(self):
-        self.root.bind("<Left>", lambda _: self.previous_image())
-        self.root.bind("<Right>", lambda _: self.next_image())
-        self.root.bind("<Control-Return>", lambda _: self.add_and_next())
+        # Global command shortcuts that should still work while an entry is focused.
+        self.root.bind("<Control-o>", lambda _e: (self.open_image(), "break")[1])
+        self.root.bind("<Control-e>", lambda _e: (self.export_txt(), "break")[1])
+        self.root.bind("<Control-Return>", lambda _e: (self.add_and_next(), "break")[1])
+
+        # Single-key viewer shortcuts are ignored while typing in an input field.
+        bindings = {
+            "<Key-a>": self.add_observation,
+            "<Key-A>": self.add_observation,
+            "<Key-f>": self.fit_image,
+            "<Key-F>": self.fit_image,
+            "<Key-i>": self.show_image_metadata,
+            "<Key-I>": self.show_image_metadata,
+            "<Key-0>": self.actual_size,
+            "<Key-plus>": self.zoom_in,
+            "<Key-equal>": self.zoom_in,
+            "<Key-minus>": self.zoom_out,
+            "<Left>": self.previous_image,
+            "<Right>": self.next_image,
+        }
+        for sequence, command in bindings.items():
+            self.root.bind(sequence, lambda event, cmd=command: self._run_shortcut(event, cmd))
 
 
 def main():
