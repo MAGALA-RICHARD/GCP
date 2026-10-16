@@ -229,60 +229,158 @@ class GCPPicker:
         self.update_navigation_buttons()
 
     def build_image_panel(self, parent):
-        info = tk.Frame(parent, bg=self.BG)
-        info.pack(fill="x", pady=(0, 7))
+        header = tk.Frame(parent, bg=self.BG)
+        header.pack(fill="x", pady=(0, 10))
 
-        file_row = tk.Frame(info, bg=self.BG)
-        file_row.pack(fill="x")
+        info_card = tk.Frame(
+            header,
+            bg="#0f172a",
+            highlightbackground="#1e293b",
+            highlightthickness=1,
+            bd=0,
+            padx=14,
+            pady=12,
+        )
+        info_card.pack(fill="x")
+
+        top_row = tk.Frame(info_card, bg="#0f172a")
+        top_row.pack(fill="x")
 
         self.filename_label = tk.Label(
-            file_row,
+            top_row,
             text="No image loaded",
-            bg=self.BG,
+            bg="#0f172a",
             fg=self.TEXT,
-            font=("Segoe UI", 11, "bold"),
+            font=("Segoe UI", 12, "bold"),
             anchor="w",
+            justify="left",
         )
         self.filename_label.pack(side="left", fill="x", expand=True)
 
-        self.counter_label = tk.Label(
-            file_row,
-            text="",
-            bg=self.BG,
-            fg="#60a5fa",
-            font=("Segoe UI", 10, "bold"),
+        counter_wrap = tk.Frame(
+            top_row,
+            bg="#1d4ed8",
+            highlightbackground="#60a5fa",
+            highlightthickness=1,
+            bd=0,
         )
-        self.counter_label.pack(side="right")
+        counter_wrap.pack(side="right", padx=(10, 0))
+
+        self.counter_label = tk.Label(
+            counter_wrap,
+            text="",
+            bg="#1d4ed8",
+            fg="white",
+            font=("Segoe UI", 9, "bold"),
+            padx=10,
+            pady=4,
+        )
+        self.counter_label.pack()
 
         self.info_label = tk.Label(
-            info,
+            info_card,
             text="Open an image and click the center of the GCP.",
-            bg=self.BG,
+            bg="#0f172a",
             fg=self.MUTED,
             anchor="w",
+            justify="left",
             font=("Segoe UI", 9),
+            pady=6,
         )
         self.info_label.pack(fill="x")
 
-        self.band_label = tk.Label(
-            info,
-            text="Bands: --",
-            bg=self.BG,
-            fg="#94a3b8",
-            anchor="w",
-            font=("Segoe UI", 9),
+        meta_row = tk.Frame(info_card, bg="#0f172a")
+        meta_row.pack(fill="x", pady=(4, 0))
+
+        raster_card = tk.Frame(
+            meta_row,
+            bg="#052e2b",
+            highlightbackground="#065f46",
+            highlightthickness=1,
+            bd=0,
+            padx=10,
+            pady=8,
         )
-        self.band_label.pack(fill="x")
+        raster_card.pack(side="left", fill="x", expand=True)
+
+        tk.Label(
+            raster_card,
+            text="RASTER SIZE",
+            bg="#052e2b",
+            fg="#86efac",
+            font=("Segoe UI", 8, "bold"),
+            anchor="w",
+        ).pack(anchor="w")
+
+        self.raster_label = tk.Label(
+            raster_card,
+            text="--",
+            bg="#052e2b",
+            fg="#ecfdf5",
+            font=("Segoe UI", 10, "bold"),
+            anchor="w",
+        )
+        self.raster_label.pack(anchor="w", pady=(2, 0))
+
+        bands_card = tk.Frame(
+            meta_row,
+            bg="#172554",
+            highlightbackground="#1d4ed8",
+            highlightthickness=1,
+            bd=0,
+            padx=10,
+            pady=8,
+        )
+        bands_card.pack(side="left", fill="x", expand=True, padx=(8, 0))
+
+        tk.Label(
+            bands_card,
+            text="BANDS",
+            bg="#172554",
+            fg="#93c5fd",
+            font=("Segoe UI", 8, "bold"),
+            anchor="w",
+        ).pack(anchor="w")
+
+        self.band_label = tk.Label(
+            bands_card,
+            text="--",
+            bg="#172554",
+            fg="#eff6ff",
+            font=("Segoe UI", 10, "bold"),
+            anchor="w",
+        )
+        self.band_label.pack(anchor="w", pady=(2, 0))
+
+        pixel_card = tk.Frame(
+            info_card,
+            bg="#422006",
+            highlightbackground="#d97706",
+            highlightthickness=1,
+            bd=0,
+            padx=12,
+            pady=10,
+        )
+        pixel_card.pack(fill="x", pady=(10, 0))
+
+        tk.Label(
+            pixel_card,
+            text="SELECTED PIXEL",
+            bg="#422006",
+            fg="#fbbf24",
+            font=("Segoe UI", 8, "bold"),
+            anchor="w",
+        ).pack(anchor="w")
 
         self.pixel_label = tk.Label(
-            info,
+            pixel_card,
             text="Pixel: --",
-            bg=self.BG,
-            fg=self.YELLOW,
+            bg="#422006",
+            fg="#fef3c7",
             anchor="w",
             font=("Segoe UI", 12, "bold"),
         )
-        self.pixel_label.pack(fill="x", pady=(3, 0))
+        self.pixel_label.pack(anchor="w", pady=(3, 0))
 
         self.canvas = tk.Canvas(
             parent,
@@ -489,14 +587,15 @@ class GCPPicker:
         self.filename_label.config(text=filename)
 
         self.info_label.config(
-            text=f"Original raster: {self.source_width} × {self.source_height} px",
-            fg="#34d399",
+            text="Image loaded successfully. Click the center of the GCP to capture the pixel location.",
+            fg="#cbd5e1",
         )
 
+        self.raster_label.config(text=f"{self.source_width} × {self.source_height} px")
         self.band_label.config(text=(
-            "Bands: " + ", ".join(self.band_names)
+            ", ".join(self.band_names)
             if self.band_names
-            else f"Bands: {self.band_count}"))
+            else str(self.band_count)))
 
         self.pixel_label.config(text="Pixel: --")
 
@@ -509,7 +608,10 @@ class GCPPicker:
 
     def loading_failed(self, error):
         self.loading = False
-        self.info_label.config(text=f"Could not open image: {error}", fg="#f87171", )
+        self.info_label.config(text=f"Could not open image: {error}", fg="#fca5a5", )
+        self.raster_label.config(text="--")
+        self.band_label.config(text="--")
+        self.pixel_label.config(text="Pixel: --")
         self.update_navigation_buttons()
 
     # =========================================================
@@ -755,8 +857,9 @@ class GCPPicker:
             text=f"Pixel: X = {x:.3f}     Y = {y:.3f}")
 
         self.info_label.config(
-            text=(f"Selected GCP center • Original raster: "
-                f"{self.source_width} × {self.source_height} px"),fg="#34d399",)
+            text="GCP center selected. Review the coordinates on the right, then click Add to save.",
+            fg="#86efac",
+        )
 
         self.update_description()
         self.render()
