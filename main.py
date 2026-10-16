@@ -201,7 +201,7 @@ class GCPPicker:
         toolbar.pack(fill="x")
         toolbar.pack_propagate(False)
         self.open_button = self.make_button(
-            toolbar, "Open Image", self.open_image, self.BLUE )
+            toolbar, "Open Folder", self.open_image, self.BLUE )
         self.prev_button = self.make_button(
             toolbar, "◀ Previous", self.previous_image)
         self.next_button = self.make_button(
@@ -353,8 +353,8 @@ class GCPPicker:
             font=("Segoe UI", 9),
         )
         menu = self.image_context_menu
-        menu.add_command(label="Add observation", accelerator="A", command=self.add_observation)
-        menu.add_command(label="Add & Next", accelerator="Ctrl+Enter", command=self.add_and_next)
+        menu.add_command(label="Add observation", accelerator="Ctrl+Shift+A", command=self.add_observation)
+        menu.add_command(label="Add & Next", accelerator="Ctrl+Shift+N", command=self.add_and_next)
         menu.add_separator()
         menu.add_command(label="Image metadata", accelerator="I", command=self.show_image_metadata)
         menu.add_command(label="Fit image", accelerator="F", command=self.fit_image)
@@ -362,8 +362,8 @@ class GCPPicker:
         menu.add_command(label="Zoom in", accelerator="+", command=self.zoom_in)
         menu.add_command(label="Zoom out", accelerator="-", command=self.zoom_out)
         menu.add_separator()
-        menu.add_command(label="Previous image", accelerator="←", command=self.previous_image)
-        menu.add_command(label="Next image", accelerator="→", command=self.next_image)
+        menu.add_command(label="Previous image", accelerator="Ctrl+P", command=self.previous_image)
+        menu.add_command(label="Next image", accelerator="Ctrl+N", command=self.next_image)
         menu.add_separator()
         menu.add_command(label="Export TXT", accelerator="Ctrl+E", command=self.export_txt)
 
@@ -528,27 +528,38 @@ class GCPPicker:
     # =========================================================
 
     def open_image(self):
+        """Open a directory and load the first supported image in it."""
         if self.loading:
             return
 
-        path = filedialog.askopenfilename(
-            filetypes=[("Supported images", "*.jpg *.jpeg *.png *.tif *.tiff"), ("JPEG", "*.jpg *.jpeg"),
-                       ("TIFF", "*.tif *.tiff"), ("PNG", "*.png"),
-                       ("All files", "*.*"), ])
-        if not path:
+        folder = filedialog.askdirectory(title="Open Image Folder")
+        if not folder:
             return
-        selected = Path(path).resolve()
+
+        folder = Path(folder).resolve()
+        supported = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
         try:
-            self.image_files, self.current_index = discover_folder_images(selected)
+            self.image_files = sorted(
+                (p.resolve() for p in folder.iterdir()
+                 if p.is_file() and p.suffix.lower() in supported),
+                key=lambda p: p.name.lower(),
+            )
         except OSError as error:
             messagebox.showerror("Folder error", str(error))
-            self.image_files = [selected]
-            self.current_index = 0
+            return
 
+        if not self.image_files:
+            messagebox.showwarning(
+                "No supported images",
+                "The selected folder does not contain JPG, JPEG, PNG, TIF, or TIFF images.",
+            )
+            return
+
+        self.current_index = 0
         self.update_counter()
         self.update_navigation_buttons()
-        self.load_image(selected)
+        self.load_image(self.image_files[0])
 
     def load_image(self, path):
         if self.loading:
@@ -1055,15 +1066,23 @@ class GCPPicker:
     # =========================================================
 
     def bind_shortcuts(self):
-        # Global command shortcuts that should still work while an entry is focused.
-        self.root.bind("<Control-o>", lambda _e: (self.open_image(), "break")[1])
-        self.root.bind("<Control-e>", lambda _e: (self.export_txt(), "break")[1])
-        self.root.bind("<Control-Return>", lambda _e: (self.add_and_next(), "break")[1])
+        # Primary application shortcuts. These intentionally work even while
+        # an entry field has focus because they use Ctrl-based combinations.
+        commands = {
+            "<Control-o>": self.open_image,
+            "<Control-e>": self.export_txt,
+            "<Control-n>": self.next_image,
+            "<Control-p>": self.previous_image,
+            "<Control-Shift-A>": self.add_observation,
+            "<Control-Shift-a>": self.add_observation,
+            "<Control-Shift-N>": self.add_and_next,
+            "<Control-Shift-n>": self.add_and_next,
+        }
+        for sequence, command in commands.items():
+            self.root.bind(sequence, lambda _event, cmd=command: (cmd(), "break")[1])
 
-        # Single-key viewer shortcuts are ignored while typing in an input field.
-        bindings = {
-            "<Key-a>": self.add_observation,
-            "<Key-A>": self.add_observation,
+        # Viewer-only shortcuts are ignored while typing in an input field.
+        viewer_bindings = {
             "<Key-f>": self.fit_image,
             "<Key-F>": self.fit_image,
             "<Key-i>": self.show_image_metadata,
@@ -1072,10 +1091,8 @@ class GCPPicker:
             "<Key-plus>": self.zoom_in,
             "<Key-equal>": self.zoom_in,
             "<Key-minus>": self.zoom_out,
-            "<Left>": self.previous_image,
-            "<Right>": self.next_image,
         }
-        for sequence, command in bindings.items():
+        for sequence, command in viewer_bindings.items():
             self.root.bind(sequence, lambda event, cmd=command: self._run_shortcut(event, cmd))
 
 
