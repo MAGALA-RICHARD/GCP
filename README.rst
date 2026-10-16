@@ -135,7 +135,7 @@ Project files
     Image discovery/loading and record creation, grouping, replacement,
     formatting, removal, sorting, and export utilities.
 
-Notes for reviewers
+Notes
 -------------------
 
 The viewer intentionally distinguishes between source-image coordinates and
