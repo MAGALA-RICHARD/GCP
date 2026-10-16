@@ -429,8 +429,7 @@ class GCPPicker:
             title_color="#bfdbfe",
             value_color="#eff6ff",
             height=68,
-            radius=18,
-        )
+            radius=18,)
         self.band_card.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
         self.pixel_card = RoundedInfoCard(
