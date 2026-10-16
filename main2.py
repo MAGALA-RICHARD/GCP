@@ -253,7 +253,7 @@ class GCPPicker:
 
         self.make_button(
             toolbar,
-            "Fit",
+            "Fit to current window",
             self.fit_image
         ).pack(
             side="left",
