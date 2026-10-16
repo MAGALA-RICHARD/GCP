@@ -413,19 +413,19 @@ class GCPPicker:
             meta_row,
             "RASTER SIZE",
             fill="black",
-            outline="#e5e7eb",
+            outline="black",
             title_color="#99f6e4",
             value_color="#ecfeff",
             height=68,
             radius=18,
         )
         self.raster_card.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-
+        # e5e7eb
         self.band_card = RoundedInfoCard(
             meta_row,
             "BANDS",
             fill="black",
-            outline="#e5e7eb",
+            outline="black", # or #e5e7eb
             title_color="#bfdbfe",
             value_color="#eff6ff",
             height=68,
