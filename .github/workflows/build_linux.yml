@@ -1,0 +1,59 @@
+name: Build Linux
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Build Linux executable
+        run: pyinstaller --clean --noconfirm GCPPixelPicker-linux.spec
+
+      - name: Package Linux release
+        run: |
+          tar -czf GCPPixelPicker-Linux-x86_64.tar.gz -C dist GCPPixelPicker
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GCPPixelPicker-Linux-x86_64
+          path: GCPPixelPicker-Linux-x86_64.tar.gz
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: GCPPixelPicker-Linux-x86_64.tar.gz

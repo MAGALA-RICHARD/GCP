@@ -1,0 +1,59 @@
+name: Build Windows
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run Ruff
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Build Windows executable
+        run: pyinstaller --clean --noconfirm GCPPixelPicker.spec
+
+      - name: Package Windows release
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist\GCPPixelPicker.exe" -DestinationPath "GCPPixelPicker-Windows-x64.zip"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GCPPixelPicker-Windows-x64
+          path: |
+            dist/GCPPixelPicker.exe
+            GCPPixelPicker-Windows-x64.zip
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/GCPPixelPicker.exe
+            GCPPixelPicker-Windows-x64.zip
