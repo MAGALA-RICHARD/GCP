@@ -1,5 +1,20 @@
+[project]
+name = "gcp-pixel-picker"
+version = "1.0.0"
+description = "Desktop utility for selecting and exporting GCP pixel coordinates from RGB and multispectral imagery."
+readme = "README.rst"
+requires-python = ">=3.12"
+dependencies = [
+    "Pillow>=10.0",
+    "numpy>=1.26",
+    "rasterio>=1.3",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.14", "pyinstaller>=6.0"]
+
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]

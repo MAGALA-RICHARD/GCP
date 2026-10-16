@@ -1,6 +1,7 @@
 import sys
 import threading
 import tkinter as tk
+from contextlib import suppress
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -751,10 +752,9 @@ class GCPPicker:
         self.loading = False
         self.first_display = True
 
-        try:
+        with suppress(ValueError):
             self.current_index = self.image_files.index(self.image_path.resolve())
-        except ValueError:
-            pass
+
 
         filename = self.image_path.name
 
