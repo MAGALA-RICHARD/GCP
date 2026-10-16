@@ -412,7 +412,7 @@ class GCPPicker:
         self.raster_card = RoundedInfoCard(
             meta_row,
             "RASTER SIZE",
-            fill="#062c2a",
+            fill="black",
             outline="#0f766e",
             title_color="#99f6e4",
             value_color="#ecfeff",
@@ -424,8 +424,8 @@ class GCPPicker:
         self.band_card = RoundedInfoCard(
             meta_row,
             "BANDS",
-            fill="#172554",
-            outline="#2563eb",
+            fill="black",
+            outline="#e5e7eb",
             title_color="#bfdbfe",
             value_color="#eff6ff",
             height=68,
@@ -436,7 +436,7 @@ class GCPPicker:
         self.pixel_card = RoundedInfoCard(
             info_card,
             "SELECTED PIXEL",
-            fill="#3b2608",
+            fill="black",
             outline="#d97706",
             title_color="#fcd34d",
             value_color="#fff7ed",
