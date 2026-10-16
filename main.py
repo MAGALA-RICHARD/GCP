@@ -437,7 +437,7 @@ class GCPPicker:
             info_card,
             "SELECTED PIXEL",
             fill="black",
-            outline="#e5e7eb",
+            outline="black",
             title_color="#fcd34d",
             value_color="#fff7ed",
             height=76,
