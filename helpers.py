@@ -252,7 +252,7 @@ def remove_record(records, suffix, record):
     bucket = records.get(suffix)
     if bucket is None:
         return
-    bucket.discard(record)
+    bucket.remove(record)
     if not bucket:
         del records[suffix]
 

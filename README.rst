@@ -1,8 +1,8 @@
-GCP Pixel Picker
+GCP Pixel Location Picker
 ================
 
 GCP Pixel Picker is a desktop utility for selecting Ground Control Point (GCP)
-pixel locations from RGB and multispectral imagery and exporting the resulting
+pixel locations from RGB and multi-spectral imagery and exporting the resulting
 observations to text files.
 
 The viewer is designed to preserve image geometry during normal use. Images are
