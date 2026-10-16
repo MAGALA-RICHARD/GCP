@@ -1,264 +1,151 @@
+from __future__ import annotations
+
 import re
 from pathlib import Path
 
 import numpy as np
+import rasterio
 from PIL import Image
 
-try:
-    import rasterio
-
-    RASTERIO_AVAILABLE = True
-except ImportError:
-    rasterio = None
-    RASTERIO_AVAILABLE = False
-
-IMAGE_EXTENSIONS = {
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".tif",
-    ".tiff",
-}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
 
-# ============================================================
-# File discovery
-# ============================================================
-
-
-def natural_sort_key(path):
-    """
-    Natural sorting.
-
-    Example:
-        image1.jpg
-        image2.jpg
-        image10.jpg
-
-    instead of:
-        image1.jpg
-        image10.jpg
-        image2.jpg
-    """
-
-    name = Path(path).name.lower()
-    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
+def _natural_key(path: Path):
+    return [int(p) if p.isdigit() else p.lower() for p in re.split(r"(\d+)", path.name)]
 
 
 def discover_folder_images(selected_path):
-    """
-    Discover supported images in the same folder as selected_path.
-
-    Returns:
-        files: list[Path]
-        selected_index: int
-    """
-
-    selected_path = Path(selected_path).resolve()
-    folder = selected_path.parent
-
-    files = [
-        path.resolve() for path in folder.iterdir() if (path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS)
-    ]
-
-    if selected_path not in files:
-        files.append(selected_path)
-    files.sort(key=natural_sort_key)
-    selected_index = files.index(selected_path)
-    return files, selected_index
+    selected = Path(selected_path).resolve()
+    files = sorted(
+        (p.resolve() for p in selected.parent.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS),
+        key=_natural_key,
+    )
+    if selected not in files:
+        files.append(selected)
+        files.sort(key=_natural_key)
+    return files, files.index(selected)
 
 
-# ============================================================
-# Raster / image loading
-# ============================================================
+def _stretch_uint8(array):
+    """Contrast-stretch one raster band while respecting masks and NoData."""
+    if np.ma.isMaskedArray(array):
+        array = array.astype(np.float32).filled(np.nan)
+    else:
+        array = np.asarray(array, dtype=np.float32)
 
-
-def normalize_band(array):
-    """
-    Convert a raster band to an 8-bit display representation.
-
-    IMPORTANT:
-    This does not change the original raster dimensions.
-
-    Only pixel values are stretched for visualization.
-    """
-
-    array = np.asarray(array, dtype=np.float32)
-    valid = np.isfinite(array)
-    if not np.any(valid):
-        return np.zeros(array.shape, dtype=np.uint8)
-    values = array[valid]
-    low = np.percentile(values, 2)
-    high = np.percentile(values, 98)
-
-    if high <= low:
-        low = float(values.min())
-        high = float(values.max())
-
-    if high <= low:
+    finite = np.isfinite(array)
+    if not finite.any():
         return np.zeros(array.shape, dtype=np.uint8)
 
-    output = (array - low) / (high - low)
+    values = array[finite]
+    lo, hi = np.percentile(values, (2, 98))
+    if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+        lo, hi = float(values.min()), float(values.max())
+    if hi <= lo:
+        return np.zeros(array.shape, dtype=np.uint8)
 
-    output = np.clip(output, 0, 1)
-
-    output[~valid] = 0
-
-    return (output * 255).astype(np.uint8)
-
-
-def choose_display_bands(descriptions, count):
-    """Return RGB band indexes if identifiable; otherwise use the first 3 bands."""
-
-    cleaned = [str(value).lower().replace("_", "").replace("-", "").replace(" ", "") for value in descriptions]
-
-    def find(names):
-        for name in names:
-            for i, desc in enumerate(cleaned):
-                if desc == name:
-                    return i + 1
-
-        for name in names:
-            for i, desc in enumerate(cleaned):
-                if name in desc:
-                    return i + 1
-
-        return None
-
-    red = find(["red", "r"])
-    green = find(["green", "g"])
-    blue = find(["blue", "b"])
-
-    if all(index is not None for index in (red, green, blue)):
-        return [red, green, blue]
-
-    return list(range(1, min(count, 3) + 1))
+    scaled = np.zeros(array.shape, dtype=np.float32)
+    scaled[finite] = np.clip((array[finite] - lo) / (hi - lo), 0, 1) * 255
+    return scaled.astype(np.uint8)
 
 
-def load_pillow_image(path):
-    """Load a Pillow-readable image while preserving original dimensions."""
+def _raster_to_pil(path):
+    with rasterio.open(path) as src:
+        width, height, count = src.width, src.height, src.count
+        descriptions = [d.strip() if d else "" for d in src.descriptions]
+        band_names = [d or f"Band {i}" for i, d in enumerate(descriptions, 1)]
 
-    source = Image.open(Path(path))
-    source.load()
+        if count <= 0:
+            raise ValueError("Raster contains no bands.")
 
-    width, height = source.size
+        if count == 1:
+            data = _stretch_uint8(src.read(1, masked=True))
+            image = Image.fromarray(data, mode="L").convert("RGB")
+        else:
+            # Prefer true-color bands when descriptions identify them.
+            # Otherwise use the first three bands. This affects display only;
+            # source raster dimensions and pixel coordinates remain unchanged.
+            names = [name.casefold() for name in band_names]
 
-    if source.mode not in ("RGB", "RGBA"):
-        source = source.convert("RGB")
+            def find_band(*terms):
+                for index, name in enumerate(names, 1):
+                    if any(term in name for term in terms):
+                        return index
+                return None
+
+            red = find_band("red")
+            green = find_band("green")
+            blue = find_band("blue")
+            indexes = [red, green, blue] if all((red, green, blue)) else list(range(1, min(count, 3) + 1))
+
+            channels = [_stretch_uint8(src.read(i, masked=True)) for i in indexes]
+            while len(channels) < 3:
+                channels.append(channels[-1])
+            image = Image.fromarray(np.dstack(channels[:3]), mode="RGB")
+
+    if image.size != (width, height):
+        raise RuntimeError("Image geometry changed while loading the raster.")
 
     return {
-        "image": source,
+        "image": image,
         "width": width,
         "height": height,
-        "bands": len(source.getbands()),
-        "band_names": list(source.getbands()),
+        "bands": count,
+        "band_names": band_names,
     }
 
 
-def load_raster_image(path):
-    """Load a TIFF/multi-spectral raster without changing its dimensions."""
-
-    if not RASTERIO_AVAILABLE:
-        raise RuntimeError("Rasterio is not installed.")
-
-    with rasterio.open(Path(path)) as src:
-        width, height, count = src.width, src.height, src.count
-
-        descriptions = [desc.strip() if desc else f"Band {i + 1}" for i, desc in enumerate(src.descriptions)]
-
-        if count == 1:
-            band = normalize_band(src.read(1))
-            rgb = np.stack([band, band, band], axis=-1)
-
-        else:
-            indexes = choose_display_bands(descriptions, count)
-            bands = [normalize_band(src.read(i)) for i in indexes]
-
-            while len(bands) < 3:
-                bands.append(bands[-1])
-
-            rgb = np.stack(bands[:3], axis=-1)
-
-        return {
-            "image": Image.fromarray(rgb.astype(np.uint8), mode="RGB"),
-            "width": width,
-            "height": height,
-            "bands": count,
-            "band_names": descriptions,
-        }
-
-
 def load_image_data(path):
-    """Load an image using rasterio for TIFFs, otherwise Pillow."""
     path = Path(path)
-    if path.suffix.lower() in {".tif", ".tiff"} and RASTERIO_AVAILABLE:
-        return load_raster_image(path)
-    return load_pillow_image(path)
+    if path.suffix.lower() in {".tif", ".tiff"}:
+        return _raster_to_pil(path)
+
+    with Image.open(path) as source:
+        width, height = source.size
+        band_names = list(source.getbands())
+        band_count = len(band_names)
+        image = source.convert("RGB") if source.mode != "RGB" else source.copy()
+
+    if image.size != (width, height):
+        raise RuntimeError("Image geometry changed while loading.")
+
+    return {
+        "image": image,
+        "width": width,
+        "height": height,
+        "bands": band_count,
+        "band_names": band_names,
+    }
 
 
-# ============================================================
-# Record handling
-# ============================================================
-
-
-def create_record(selected, image_path, x_value, y_value, z_value, label):
-    """Create a GCP record from map coordinates, pixel coordinates, image name, and label."""
+def create_record(selected, image_path, x, y, z, label):
     if selected is None or image_path is None:
         return None
-    gx, gy, gz = (value.strip() for value in (x_value, y_value, z_value))
-    label = label.strip()
-    if any((gx, gy, gz)) and not all((gx, gy, gz)):
+
+    xyz = tuple(v.strip() for v in (x, y, z))
+    if any(xyz) and not all(xyz):
         return None
-    pixel_x, pixel_y = selected
-    return (
-        gx,
-        gy,
-        gz,
-        round(float(pixel_x), 3),
-        round(float(pixel_y), 3),
-        Path(image_path).name,
-        label,
-    )
 
+    if all(xyz):
+        try:
+            gx, gy, gz = (float(v) for v in xyz)
+        except ValueError:
+            return None
+    else:
+        gx = gy = gz = ""
 
-def format_record(record):
-    """Format a GCP record for TXT export."""
-    gx, gy, gz, pixel_x, pixel_y, filename, label = record
-    parts = []
-    if all((gx, gy, gz)):
-        parts.extend((gx, gy, gz))
-    parts.extend(
-        (
-            f"{pixel_x:.3f}",
-            f"{pixel_y:.3f}",
-            filename,
-        )
-    )
-    if label:
-        parts.append(label)
-    return " ".join(parts)
-
-
-def record_sort_key(record):
-    """
-    Consistent ordering for UI and export.
-    """
-
-    return (
-        record[5].lower(),
-        record[6].lower(),
-        record[3],
-        record[4],
-    )
+    px, py = map(float, selected)
+    return gx, gy, gz, px, py, Path(image_path).name, label.strip()
 
 
 def add_record(records, record):
+    """Insert or replace one observation per image within its suffix group."""
     filename = record[5]
     suffix = Path(filename).suffix.lower()
     group = records.setdefault(suffix, [])
 
     for i, existing in enumerate(group):
-        if existing[5] == filename:
+        if existing[5].casefold() == filename.casefold():
             group[i] = record
             return suffix, False
 
@@ -267,54 +154,52 @@ def add_record(records, record):
 
 
 def remove_record(records, suffix, record):
-    """
-    Remove one record from the records' dictionary.
-    """
-    bucket = records.get(suffix)
-    if bucket is None:
+    group = records.get(suffix)
+    if not group:
         return
-    bucket.remove(record)
-    if not bucket:
-        del records[suffix]
-
-
-def total_records(records):
-    """
-    Total number of observations.
-    """
-    return sum(len(group) for group in records.values())
+    try:
+        group.remove(record)
+    except ValueError:
+        return
+    if not group:
+        records.pop(suffix, None)
 
 
 def sorted_group(records, suffix):
-    """
-    Return one suffix group in stable order.
-    """
-    return sorted(records.get(suffix, set()), key=record_sort_key)
+    return sorted(records.get(suffix, []), key=lambda r: (r[5].casefold(), r[6].casefold(), r[3], r[4]))
 
 
 def sorted_all_records(records):
-    """
-    Return every observation grouped and sorted by extension.
-    """
-    output = []
-    for suffix in sorted(records):
-        output.extend(sorted_group(records, suffix))
-    return output
+    return [record for suffix in sorted(records) for record in sorted_group(records, suffix)]
 
 
-# ============================================================
-# Export
-# ============================================================
+def total_records(records):
+    return sum(len(group) for group in records.values())
+
+
+def _number(value):
+    if value == "":
+        return ""
+    if isinstance(value, float):
+        return f"{value:.10g}"
+    return str(value)
+
+
+def format_record(record):
+    gx, gy, gz, px, py, filename, label = record
+    fields = []
+    if gx != "":
+        fields.extend((_number(gx), _number(gy), _number(gz)))
+    fields.extend((f"{px:.3f}", f"{py:.3f}", filename))
+    if label:
+        fields.append(label)
+    return " ".join(fields)
 
 
 def export_records(path, records, crs=""):
-    """
-    Write GCP observations to text file.
-    """
     path = Path(path)
-    with path.open("w", encoding="utf-8") as file:
-        crs = crs.strip()
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
         if crs:
-            file.write(crs + "\n")
+            stream.write(f"# CRS: {crs}\n")
         for record in records:
-            file.write(format_record(record) + "\n")
+            stream.write(format_record(record) + "\n")
