@@ -31,9 +31,17 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install dependencies
+      - name: Install GDAL
         run: |
-          python -m pip install --upgrade pip
+          brew update
+          brew install gdal
+          echo "$(brew --prefix gdal)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          export GDAL_CONFIG="$(brew --prefix gdal)/bin/gdal-config"
+          "$GDAL_CONFIG" --version
           pip install -r requirements.txt
           pip install pyinstaller
 
@@ -47,9 +55,11 @@ jobs:
 
       - name: Package macOS app
         run: |
-          ditto -c -k --sequesterRsrc --keepParent "dist/GCP Pixel Picker.app" "GCPPixelPicker-macOS-${{ matrix.arch }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "dist/GCP Pixel Picker.app" \
+            "GCPPixelPicker-macOS-${{ matrix.arch }}.zip"
 
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: GCPPixelPicker-macOS-${{ matrix.arch }}
