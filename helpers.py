@@ -58,9 +58,7 @@ def discover_folder_images(selected_path):
     folder = selected_path.parent
 
     files = [
-        path.resolve()
-        for path in folder.iterdir()
-        if (path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS)
+        path.resolve() for path in folder.iterdir() if (path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS)
     ]
 
     if selected_path not in files:
@@ -112,10 +110,7 @@ def normalize_band(array):
 def choose_display_bands(descriptions, count):
     """Return RGB band indexes if identifiable; otherwise use the first 3 bands."""
 
-    cleaned = [
-        str(value).lower().replace("_", "").replace("-", "").replace(" ", "")
-        for value in descriptions
-    ]
+    cleaned = [str(value).lower().replace("_", "").replace("-", "").replace(" ", "") for value in descriptions]
 
     def find(names):
         for name in names:
@@ -169,9 +164,7 @@ def load_raster_image(path):
     with rasterio.open(Path(path)) as src:
         width, height, count = src.width, src.height, src.count
 
-        descriptions = [
-            desc.strip() if desc else f"Band {i + 1}" for i, desc in enumerate(src.descriptions)
-        ]
+        descriptions = [desc.strip() if desc else f"Band {i + 1}" for i, desc in enumerate(src.descriptions)]
 
         if count == 1:
             band = normalize_band(src.read(1))

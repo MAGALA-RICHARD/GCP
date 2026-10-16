@@ -295,9 +295,7 @@ class GCPPicker:
         self.prev_button = self.make_button(toolbar, "◀ Previous", self.previous_image)
         self.next_button = self.make_button(toolbar, "Next ▶", self.next_image)
         self.add_button = self.make_button(toolbar, "+ Add", self.add_observation, self.GREEN)
-        self.add_next_button = self.make_button(
-            toolbar, "+ Add & Next", self.add_and_next, "#047857"
-        )
+        self.add_next_button = self.make_button(toolbar, "+ Add & Next", self.add_and_next, "#047857")
         self.export_button = self.make_button(toolbar, "Export TXT", self.export_txt, self.PURPLE)
 
         self.open_button.pack(side="left", padx=(10, 4), pady=9)
@@ -348,9 +346,7 @@ class GCPPicker:
         self.build_control_panel(right)
 
         # Start with a sensible right-panel width. The user can drag the sash.
-        self.root.after_idle(
-            lambda: self.main_panes.sash_place(0, max(self.root.winfo_width() - 410, 400), 0)
-        )
+        self.root.after_idle(lambda: self.main_panes.sash_place(0, max(self.root.winfo_width() - 410, 400), 0))
 
         self.update_navigation_buttons()
 
@@ -512,9 +508,7 @@ class GCPPicker:
             return
         self.image_context_menu.entryconfig(0, state="normal" if self.selected else "disabled")
         self.image_context_menu.entryconfig(1, state="normal" if self.selected else "disabled")
-        self.image_context_menu.entryconfig(
-            9, state="normal" if self.current_index > 0 else "disabled"
-        )
+        self.image_context_menu.entryconfig(9, state="normal" if self.current_index > 0 else "disabled")
         self.image_context_menu.entryconfig(
             10,
             state="normal" if self.current_index < len(self.image_files) - 1 else "disabled",
@@ -534,9 +528,7 @@ class GCPPicker:
         except OSError:
             size_text = "Unavailable"
 
-        selected = (
-            f"X = {self.selected[0]:.3f}, Y = {self.selected[1]:.3f}" if self.selected else "None"
-        )
+        selected = f"X = {self.selected[0]:.3f}, Y = {self.selected[1]:.3f}" if self.selected else "None"
         bands = ", ".join(self.band_names) if self.band_names else str(self.band_count)
         details = (
             f"File: {self.image_path.name}\n"
@@ -672,9 +664,7 @@ class GCPPicker:
         scrollbar.pack(side="right", fill="y")
         actions = tk.Frame(parent, bg=self.PANEL)
         actions.pack(fill="x", padx=14, pady=(0, 14))
-        self.make_button(actions, "Delete Selected", self.delete_selected, self.RED).pack(
-            side="left"
-        )
+        self.make_button(actions, "Delete Selected", self.delete_selected, self.RED).pack(side="left")
         self.make_button(actions, "Clear All", self.clear_all).pack(side="right")
 
     # =========================================================
@@ -695,11 +685,7 @@ class GCPPicker:
 
         try:
             self.image_files = sorted(
-                (
-                    p.resolve()
-                    for p in folder.iterdir()
-                    if p.is_file() and p.suffix.lower() in supported
-                ),
+                (p.resolve() for p in folder.iterdir() if p.is_file() and p.suffix.lower() in supported),
                 key=lambda p: p.name.lower(),
             )
         except OSError as error:
@@ -755,7 +741,6 @@ class GCPPicker:
         with suppress(ValueError):
             self.current_index = self.image_files.index(self.image_path.resolve())
 
-
         filename = self.image_path.name
 
         self.root.title(f"GCP Pixel Picker - {filename}")
@@ -767,9 +752,7 @@ class GCPPicker:
         )
 
         self.raster_card.set_value(f"{self.source_width} × {self.source_height} px")
-        self.band_card.set_value(
-            ", ".join(self.band_names) if self.band_names else str(self.band_count)
-        )
+        self.band_card.set_value(", ".join(self.band_names) if self.band_names else str(self.band_count))
 
         self.pixel_card.set_value("--")
 
@@ -818,11 +801,7 @@ class GCPPicker:
     def update_navigation_buttons(self):
         previous = bool(self.image_files) and self.current_index > 0 and not self.loading
 
-        following = (
-            bool(self.image_files)
-            and 0 <= self.current_index < len(self.image_files) - 1
-            and not self.loading
-        )
+        following = bool(self.image_files) and 0 <= self.current_index < len(self.image_files) - 1 and not self.loading
 
         self.prev_button.config(state="normal" if previous else "disabled")
         self.next_button.config(state="normal" if following else "disabled")
@@ -910,9 +889,7 @@ class GCPPicker:
                 )
                 self.tree_records[item] = (suffix, record)
         self.obs_count_label.config(text=str(total_records(self.records)))
-        groups = "   ".join(
-            f"{suffix}: {len(records)}" for suffix, records in sorted(self.records.items())
-        )
+        groups = "   ".join(f"{suffix}: {len(records)}" for suffix, records in sorted(self.records.items()))
         self.group_label.config(text=f"Groups: {groups}" if groups else "Groups: --")
 
     def delete_selected(self):
