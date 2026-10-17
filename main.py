@@ -1,3 +1,4 @@
+import csv
 import sys
 import threading
 import tkinter as tk
@@ -17,6 +18,7 @@ from helpers import (
     sorted_all_records,
     sorted_group,
     total_records,
+    update_navigation_buttons
 )
 
 
@@ -28,16 +30,16 @@ def resource_path(filename):
 
 class RoundedInfoCard(tk.Canvas):
     def __init__(
-        self,
-        parent,
-        title,
-        value="--",
-        fill="#0f172a",
-        outline="#334155",
-        title_color="#94a3b8",
-        value_color="#f8fafc",
-        height=68,
-        radius=16,
+            self,
+            parent,
+            title,
+            value="--",
+            fill="#0f172a",
+            outline="#334155",
+            title_color="#94a3b8",
+            value_color="#f8fafc",
+            height=68,
+            radius=16,
     ):
         super().__init__(
             parent,
@@ -161,6 +163,7 @@ class GCPPicker:
         self.pan_start = None
         self.loading = False
         self.first_display = True
+        self.fit_after_load = False
 
         self.records = {}
         self.tree_records = {}
@@ -287,23 +290,49 @@ class GCPPicker:
     # UI
     # =========================================================
 
+    def build_file_menu(self, toolbar):
+        self.file_button = tk.Menubutton(
+            toolbar, text="File ▼", bg=self.BLUE, fg="white",
+            activebackground=self.BLUE, activeforeground="white",
+            relief="flat", bd=0, padx=12, pady=6,
+            font=("Segoe UI", 9, "bold"), cursor="hand2",
+        )
+        file_menu = tk.Menu(
+            self.file_button, tearoff=False, bg="#111827", fg="#f8fafc",
+            activebackground=self.BLUE, activeforeground="white",
+            relief="flat", bd=1, font=("Segoe UI", 9),
+        )
+        file_menu.add_command(label="Open Folder...", accelerator="Ctrl+O", command=self.open_folder)
+        file_menu.add_command(label="Open File...", accelerator="Ctrl+Shift+O", command=self.open_file)
+        file_menu.add_separator()
+
+        export_menu = tk.Menu(
+            file_menu, tearoff=False, bg="#111827", fg="#f8fafc",
+            activebackground=self.BLUE, activeforeground="white",
+            relief="flat", bd=1, font=("Segoe UI", 9),
+        )
+        export_menu.add_command(label="TXT (.txt)", accelerator="Ctrl+E", command=self.export_txt)
+        export_menu.add_command(label="CSV (.csv)", accelerator="Ctrl+Shift+E", command=self.export_csv)
+        file_menu.add_cascade(label="Export", menu=export_menu)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.destroy)
+        self.file_button.config(menu=file_menu)
+        self.file_button.pack(side="left", padx=(10, 4), pady=9)
+
     def build_ui(self):
         toolbar = tk.Frame(self.root, bg=self.PANEL, height=56)
         toolbar.pack(fill="x")
         toolbar.pack_propagate(False)
-        self.open_button = self.make_button(toolbar, "Open Folder", self.open_image, self.BLUE)
+        self.build_file_menu(toolbar)
         self.prev_button = self.make_button(toolbar, "◀ Previous", self.previous_image)
         self.next_button = self.make_button(toolbar, "Next ▶", self.next_image)
         self.add_button = self.make_button(toolbar, "+ Add", self.add_observation, self.GREEN)
         self.add_next_button = self.make_button(toolbar, "+ Add & Next", self.add_and_next, "#047857")
-        self.export_button = self.make_button(toolbar, "Export TXT", self.export_txt, self.PURPLE)
 
-        self.open_button.pack(side="left", padx=(10, 4), pady=9)
         self.prev_button.pack(side="left", padx=4, pady=9)
         self.next_button.pack(side="left", padx=4, pady=9)
         self.add_button.pack(side="left", padx=(14, 4), pady=9)
         self.add_next_button.pack(side="left", padx=4, pady=9)
-        self.export_button.pack(side="left", padx=(14, 4), pady=9)
 
         self.make_button(toolbar, "Fit", self.fit_image).pack(side="left", padx=(14, 4), pady=9)
         self.make_button(toolbar, "100%", self.actual_size).pack(side="left", padx=4, pady=9)
@@ -472,52 +501,105 @@ class GCPPicker:
         self.build_image_context_menu()
 
     def build_image_context_menu(self):
-        self.image_context_menu = tk.Menu(
-            self.root,
-            tearoff=False,
-            bg="#111827",
-            fg="#f8fafc",
-            activebackground="#2563eb",
-            activeforeground="white",
-            disabledforeground="#64748b",
-            relief="flat",
-            bd=1,
-            font=("Segoe UI", 9),
+        """Prepare the custom image context menu state."""
+        self.image_context_menu = None
+
+    def _canvas_to_image(self, canvas_x, canvas_y):
+        """Convert canvas coordinates to source-image coordinates."""
+        if self.image is None or self.scale <= 0:
+            return None
+        x = (canvas_x - self.offset_x) / self.scale
+        y = (canvas_y - self.offset_y) / self.scale
+        if not (0 <= x < self.source_width and 0 <= y < self.source_height):
+            return None
+        return (
+            min(max(float(x), 0.0), self.source_width - 1.0),
+            min(max(float(y), 0.0), self.source_height - 1.0),
         )
+
+    def _set_selected_pixel(self, x, y):
+        self.selected = (x, y)
+        self.pixel_card.set_value(f"X = {x:.3f}    Y = {y:.3f}")
+        self.update_description()
+        self.render()
+
+    def _context_action(self, parent, text, command, shortcut="", enabled=True):
+        row = tk.Frame(parent, bg="#111827", cursor="hand2" if enabled else "arrow")
+        row.pack(fill="x", padx=6, pady=1)
+        fg = self.TEXT if enabled else "#64748b"
+        label = tk.Label(row, text=text, bg="#111827", fg=fg, anchor="w", padx=10, pady=7,
+                         font=("Segoe UI", 9, "bold" if text in {"Add observation", "Add & Next"} else "normal"))
+        label.pack(side="left", fill="x", expand=True)
+        key = tk.Label(row, text=shortcut, bg="#111827", fg="#64748b", anchor="e", padx=10,
+                       font=("Segoe UI", 8))
+        key.pack(side="right")
+        if enabled:
+            def enter(_e):
+                row.config(bg="#1e3a5f"); label.config(bg="#1e3a5f"); key.config(bg="#1e3a5f", fg="#bfdbfe")
+            def leave(_e):
+                row.config(bg="#111827"); label.config(bg="#111827"); key.config(bg="#111827", fg="#64748b")
+            def run(_e=None):
+                self._close_image_context_menu(); command()
+            for widget in (row, label, key):
+                widget.bind("<Enter>", enter); widget.bind("<Leave>", leave); widget.bind("<Button-1>", run)
+        return row
+
+    def _context_separator(self, parent):
+        tk.Frame(parent, bg="#263244", height=1).pack(fill="x", padx=10, pady=5)
+
+    def _close_image_context_menu(self, _event=None):
         menu = self.image_context_menu
-        menu.add_command(
-            label="Add observation",
-            accelerator="Ctrl+Shift+A",
-            command=self.add_observation,
-        )
-        menu.add_command(label="Add & Next", accelerator="Ctrl+Shift+N", command=self.add_and_next)
-        menu.add_separator()
-        menu.add_command(label="Image metadata", accelerator="I", command=self.show_image_metadata)
-        menu.add_command(label="Fit image", accelerator="F", command=self.fit_image)
-        menu.add_command(label="Actual size (100%)", accelerator="0", command=self.actual_size)
-        menu.add_command(label="Zoom in", accelerator="+", command=self.zoom_in)
-        menu.add_command(label="Zoom out", accelerator="-", command=self.zoom_out)
-        menu.add_separator()
-        menu.add_command(label="Previous image", accelerator="Ctrl+P", command=self.previous_image)
-        menu.add_command(label="Next image", accelerator="Ctrl+N", command=self.next_image)
-        menu.add_separator()
-        menu.add_command(label="Export TXT", accelerator="Ctrl+E", command=self.export_txt)
+        if menu is not None and menu.winfo_exists():
+            menu.destroy()
+        self.image_context_menu = None
 
     def show_image_context_menu(self, event):
-        if self.image is None:
+        point = self._canvas_to_image(event.x, event.y)
+        if point is None:
             return
-        self.image_context_menu.entryconfig(0, state="normal" if self.selected else "disabled")
-        self.image_context_menu.entryconfig(1, state="normal" if self.selected else "disabled")
-        self.image_context_menu.entryconfig(9, state="normal" if self.current_index > 0 else "disabled")
-        self.image_context_menu.entryconfig(
-            10,
-            state="normal" if self.current_index < len(self.image_files) - 1 else "disabled",
-        )
-        self.image_context_menu.entryconfig(12, state="normal" if self.records else "disabled")
-        try:
-            self.image_context_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            self.image_context_menu.grab_release()
+        x, y = point
+        self._set_selected_pixel(x, y)
+        self._close_image_context_menu()
+
+        menu = tk.Toplevel(self.root)
+        self.image_context_menu = menu
+        menu.overrideredirect(True)
+        menu.configure(bg="#334155")
+        menu.attributes("-topmost", True)
+
+        card = tk.Frame(menu, bg="#111827", highlightbackground="#475569", highlightthickness=1, bd=0)
+        card.pack(padx=1, pady=1)
+
+        header = tk.Frame(card, bg="#0f172a")
+        header.pack(fill="x")
+        tk.Label(header, text="PIXEL LOCATION", bg="#0f172a", fg="#93c5fd", anchor="w",
+                 padx=14, pady=4, font=("Segoe UI", 8, "bold")).pack(fill="x", pady=(6, 0))
+        tk.Label(header, text=f"X  {x:.3f}     Y  {y:.3f}", bg="#0f172a", fg="#f8fafc", anchor="w",
+                 padx=14, pady=5, font=("Consolas", 11, "bold")).pack(fill="x", pady=(0, 6))
+
+        self._context_action(card, "Add observation", self.add_observation, "Ctrl+Shift+A")
+        self._context_action(card, "Add & Next", self.add_and_next, "Ctrl+Shift+N")
+        self._context_separator(card)
+        self._context_action(card, "Image metadata", self.show_image_metadata, "I")
+        self._context_action(card, "Fit image", self.fit_image, "F")
+        self._context_action(card, "Actual size (100%)", self.actual_size, "0")
+        self._context_action(card, "Zoom in", self.zoom_in, "+")
+        self._context_action(card, "Zoom out", self.zoom_out, "-")
+        self._context_separator(card)
+        self._context_action(card, "Previous image", self.previous_image, "Ctrl+P", self.current_index > 0)
+        self._context_action(card, "Next image", self.next_image, "Ctrl+N",
+                             self.current_index < len(self.image_files) - 1)
+        self._context_separator(card)
+        self._context_action(card, "Export TXT", self.export_txt, "Ctrl+E", bool(self.records))
+        self._context_action(card, "Export CSV", self.export_csv, "Ctrl+Shift+E", bool(self.records))
+
+        menu.update_idletasks()
+        x_pos = min(event.x_root + 8, menu.winfo_screenwidth() - menu.winfo_reqwidth() - 8)
+        y_pos = min(event.y_root + 8, menu.winfo_screenheight() - menu.winfo_reqheight() - 8)
+        menu.geometry(f"+{max(x_pos, 0)}+{max(y_pos, 0)}")
+        menu.bind("<Escape>", self._close_image_context_menu)
+        menu.bind("<FocusOut>", self._close_image_context_menu)
+        menu.focus_force()
 
     def show_image_metadata(self):
         if self.image is None or self.image_path is None:
@@ -565,11 +647,11 @@ class GCPPicker:
         form.pack(fill="x", padx=14)
 
         for title, variable in (
-            ("X / Longitude", self.x_var),
-            ("Y / Latitude", self.y_var),
-            ("Z / Elevation", self.z_var),
-            ("Label", self.label_var),
-            ("CRS", self.crs_var),
+                ("X / Longitude", self.x_var),
+                ("Y / Latitude", self.y_var),
+                ("Z / Elevation", self.z_var),
+                ("Label", self.label_var),
+                ("CRS", self.crs_var),
         ):
             self.form_row(form, title, variable)
 
@@ -601,8 +683,11 @@ class GCPPicker:
             bd=0,
             font=("Consolas", 9),
         )
-        self.description.pack(fill="x", padx=14, pady=(6, 12))
+        self.description.pack(fill="x", padx=14, pady=(6, 6))
         self.description.config(state="disabled")
+        self.make_button(parent, "Copy Current to Clipboard", self.copy_current_record, self.PURPLE).pack(
+            anchor="e", padx=14, pady=(0, 12)
+        )
 
         stats = tk.Frame(parent, bg=self.PANEL)
         stats.pack(fill="x", padx=14)
@@ -665,13 +750,15 @@ class GCPPicker:
         actions = tk.Frame(parent, bg=self.PANEL)
         actions.pack(fill="x", padx=14, pady=(0, 14))
         self.make_button(actions, "Delete Selected", self.delete_selected, self.RED).pack(side="left")
+        self.make_button(actions, "Copy Selected", self.copy_selected_records, self.PURPLE).pack(side="left", padx=6)
+        self.make_button(actions, "Copy All", self.copy_all_records).pack(side="left")
         self.make_button(actions, "Clear All", self.clear_all).pack(side="right")
 
     # =========================================================
     # Image loading
     # =========================================================
 
-    def open_image(self):
+    def open_folder(self):
         """Open a directory and load the first supported image in it."""
         if self.loading:
             return
@@ -702,7 +789,35 @@ class GCPPicker:
         self.current_index = 0
         self.update_counter()
         self.update_navigation_buttons()
+        self.fit_after_load = False
         self.load_image(self.image_files[0])
+
+    def open_file(self):
+        """Open one supported image without changing the source image dimensions."""
+        if self.loading:
+            return
+        path = filedialog.askopenfilename(
+            title="Open Image",
+            filetypes=[
+                ("Supported images", "*.jpg *.jpeg *.png *.tif *.tiff"),
+                ("JPEG", "*.jpg *.jpeg"),
+                ("PNG", "*.png"),
+                ("TIFF", "*.tif *.tiff"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        path = Path(path).resolve()
+        if path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}:
+            messagebox.showwarning("Unsupported image", "Choose a JPG, JPEG, PNG, TIF, or TIFF image.")
+            return
+        self.image_files = [path]
+        self.current_index = 0
+        self.fit_after_load = False
+        self.update_counter()
+        self.update_navigation_buttons()
+        self.load_image(path)
 
     def load_image(self, path):
         if self.loading:
@@ -714,8 +829,7 @@ class GCPPicker:
         threading.Thread(
             target=self.load_image_worker,
             args=(Path(path),),
-            daemon=True,
-        ).start()
+            daemon=True, ).start()
 
     def load_image_worker(self, path):
         try:
@@ -761,14 +875,18 @@ class GCPPicker:
         self.update_navigation_buttons()
 
         self.root.update_idletasks()
-        self.show_original_size()
+        if self.fit_after_load:
+            self.fit_after_load = False
+            self.fit_image()
+        else:
+            self.show_original_size()
 
     def loading_failed(self, error):
         self.loading = False
+        self.fit_after_load = False
         self.info_label.config(
             text=f"Could not open image: {error}",
-            fg="#fca5a5",
-        )
+            fg="#fca5a5",)
         self.raster_card.set_value("--")
         self.band_card.set_value("--")
         self.pixel_card.set_value("--")
@@ -782,6 +900,7 @@ class GCPPicker:
         if self.loading or not self.image_files or self.current_index >= len(self.image_files) - 1:
             return
         self.current_index += 1
+        self.fit_after_load = True
         self.load_image(self.image_files[self.current_index])
 
     def previous_image(self):
@@ -790,21 +909,18 @@ class GCPPicker:
         self.current_index -= 1
         self.load_image(self.image_files[self.current_index])
 
+
     def update_counter(self):
         text = (
             f"{self.current_index + 1} / {len(self.image_files)}"
             if self.image_files and self.current_index >= 0
-            else ""
-        )
+            else "")
         self.counter_label.config(text=text)
 
+
     def update_navigation_buttons(self):
-        previous = bool(self.image_files) and self.current_index > 0 and not self.loading
-
-        following = bool(self.image_files) and 0 <= self.current_index < len(self.image_files) - 1 and not self.loading
-
-        self.prev_button.config(state="normal" if previous else "disabled")
-        self.next_button.config(state="normal" if following else "disabled")
+        """navigate the folder"""
+        update_navigation_buttons(self)
 
     # =========================================================
     # Records
@@ -817,8 +933,7 @@ class GCPPicker:
             self.x_var.get(),
             self.y_var.get(),
             self.z_var.get(),
-            self.label_var.get(),
-        )
+            self.label_var.get(), )
 
     def update_description(self):
         record = self.current_record()
@@ -892,6 +1007,38 @@ class GCPPicker:
         groups = "   ".join(f"{suffix}: {len(records)}" for suffix, records in sorted(self.records.items()))
         self.group_label.config(text=f"Groups: {groups}" if groups else "Groups: --")
 
+    def copy_to_clipboard(self, text, success_message="Copied to clipboard."):
+        if not text:
+            return False
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self.root.update()
+        self.info_label.config(text=success_message, fg="#34d399")
+        return True
+
+    def copy_current_record(self):
+        record = self.current_record()
+        if record is None:
+            messagebox.showwarning("Nothing to copy", "Select a GCP and provide complete XYZ coordinates if used.")
+            return
+        self.copy_to_clipboard(format_record(record), "Current record copied to clipboard.")
+
+    def copy_selected_records(self):
+        selected = [self.tree_records[item][1] for item in self.tree.selection() if item in self.tree_records]
+        if not selected:
+            messagebox.showwarning("Nothing selected", "Select one or more records first.")
+            return
+        text = "\n".join(format_record(record) for record in selected)
+        self.copy_to_clipboard(text, f"Copied {len(selected)} selected record(s) to clipboard.")
+
+    def copy_all_records(self):
+        records = sorted_all_records(self.records)
+        if not records:
+            messagebox.showwarning("Nothing to copy", "Add at least one observation first.")
+            return
+        text = "\n".join(format_record(record) for record in records)
+        self.copy_to_clipboard(text, f"Copied {len(records)} record(s) to clipboard.")
+
     def delete_selected(self):
         for item in self.tree.selection():
             data = self.tree_records.get(item)
@@ -905,8 +1052,8 @@ class GCPPicker:
         if not self.records:
             return
         if not messagebox.askyesno(
-            "Clear all observations",
-            "Delete every saved observation?",
+                "Clear all observations",
+                "Delete every saved observation?",
         ):
             return
         self.records.clear()
@@ -917,16 +1064,18 @@ class GCPPicker:
     # =========================================================
 
     def export_txt(self):
+        self.export_records_dialog("txt")
+
+    def export_csv(self):
+        self.export_records_dialog("csv")
+
+    def export_records_dialog(self, file_format):
         if not self.records:
-            messagebox.showwarning(
-                "Nothing to export",
-                "Add at least one observation first.",
-            )
+            messagebox.showwarning("Nothing to export", "Add at least one observation first.")
             return
+        self.show_export_dialog(sorted(self.records), file_format)
 
-        self.show_export_dialog(sorted(self.records))
-
-    def show_export_dialog(self, suffixes):
+    def show_export_dialog(self, suffixes, file_format="txt"):
         dialog = tk.Toplevel(self.root)
         dialog.title("Export Observations")
         dialog.configure(bg=self.PANEL)
@@ -953,7 +1102,7 @@ class GCPPicker:
         self.make_button(
             dialog,
             f"Export ALL ({total_records(self.records)})",
-            lambda: self.export_group(dialog),
+            lambda: self.export_group(dialog, file_format=file_format),
             self.PURPLE,
         ).pack(fill="x", padx=25, pady=4)
 
@@ -962,7 +1111,7 @@ class GCPPicker:
             self.make_button(
                 dialog,
                 f"Export {suffix} ({count})",
-                lambda s=suffix: self.export_group(dialog, s),
+                lambda s=suffix: self.export_group(dialog, s, file_format),
                 self.BLUE,
             ).pack(fill="x", padx=25, pady=4)
 
@@ -978,63 +1127,52 @@ class GCPPicker:
 
         dialog.geometry(f"+{x}+{y}")
 
-    def export_group(self, dialog, suffix=None):
+    def export_group(self, dialog, suffix=None, file_format="txt"):
         dialog.destroy()
-
-        if suffix is None:
-            records = sorted_all_records(self.records)
-            default_name = "gcp_all.txt"
-            description = "all groups"
-        else:
-            records = sorted_group(self.records, suffix)
-            default_name = f"gcp_{suffix.lstrip('.') or 'records'}.txt"
-            description = suffix
-
+        records = sorted_all_records(self.records) if suffix is None else sorted_group(self.records, suffix)
+        description = "all groups" if suffix is None else suffix
+        stem = "gcp_all" if suffix is None else f"gcp_{suffix.lstrip('.') or 'records'}"
+        ext = ".csv" if file_format == "csv" else ".txt"
         path = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            initialfile=default_name,
-            filetypes=[
-                ("Text file", "*.txt"),
-                ("All files", "*.*"),
-            ],
+            defaultextension=ext,
+            initialfile=stem + ext,
+            filetypes=[("CSV file", "*.csv"), ("All files", "*.*")] if file_format == "csv"
+                      else [("Text file", "*.txt"), ("All files", "*.*")],
         )
-
         if not path:
             return
-
         try:
-            export_records(path, records, self.crs_var.get().strip())
+            if file_format == "csv":
+                self.write_csv(path, records)
+            else:
+                export_records(path, records, self.crs_var.get().strip())
         except OSError as error:
             messagebox.showerror("Export failed", str(error))
             return
-        messagebox.showinfo(
-            "Export complete",
-            f"Exported {len(records)} record(s) from {description}.\n\n{path}",
-        )
+        messagebox.showinfo("Export complete", f"Exported {len(records)} record(s) from {description}.\n\n{path}")
+
+    def write_csv(self, path, records):
+        crs = self.crs_var.get().strip()
+        with open(path, "w", newline="", encoding="utf-8") as stream:
+            writer = csv.writer(stream)
+            writer.writerow(["X", "Y", "Z", "Pixel X", "Pixel Y", "Image", "Label", "CRS"])
+            for x, y, z, px, py, filename, label in records:
+                writer.writerow([x, y, z, f"{px:.3f}", f"{py:.3f}", filename, label, crs])
 
     # =========================================================
     # Pixel selection
     # =========================================================
 
     def select_point(self, event):
-        if self.image is None:
+        point = self._canvas_to_image(event.x, event.y)
+        if point is None:
             return
-        x = (event.x - self.offset_x) / self.scale
-        y = (event.y - self.offset_y) / self.scale
-        if not (0 <= x < self.source_width and 0 <= y < self.source_height):
-            return
-        x = min(max(float(x), 0.0), self.source_width - 1.0)
-        y = min(max(float(y), 0.0), self.source_height - 1.0)
-        self.selected = (x, y)
-        self.pixel_card.set_value(f"X = {x:.3f}    Y = {y:.3f}")
-
+        x, y = point
+        self._set_selected_pixel(x, y)
         self.info_label.config(
             text="GCP center selected. Review the coordinates on the right, then click Add to save.",
             fg="#86efac",
         )
-
-        self.update_description()
-        self.render()
 
     # =========================================================
     # Zoom / pan
@@ -1051,8 +1189,7 @@ class GCPPicker:
         margin = 20
         self.scale = min(
             max(cw - margin * 2, 1) / iw,
-            max(ch - margin * 2, 1) / ih,
-        )
+            max(ch - margin * 2, 1) / ih, )
         self.min_scale = self.scale * 0.25
         self.max_scale = max(20.0, self.scale * 100)
         self.offset_x = (cw - iw * self.scale) / 2
@@ -1097,16 +1234,14 @@ class GCPPicker:
         self.zoom_at(
             self.canvas.winfo_width() / 2,
             self.canvas.winfo_height() / 2,
-            factor,
-        )
+            factor,)
 
     def mouse_zoom(self, event):
         if self.image is not None:
             self.zoom_at(
                 event.x,
                 event.y,
-                1.20 if event.delta > 0 else 1 / 1.20,
-            )
+                1.20 if event.delta > 0 else 1 / 1.20,)
 
     def mouse_zoom_linux(self, event):
         if self.image is not None:
@@ -1259,8 +1394,12 @@ class GCPPicker:
         # Primary application shortcuts. These intentionally work even while
         # an entry field has focus because they use Ctrl-based combinations.
         commands = {
-            "<Control-o>": self.open_image,
+            "<Control-o>": self.open_folder,
+            "<Control-Shift-O>": self.open_file,
+            "<Control-Shift-o>": self.open_file,
             "<Control-e>": self.export_txt,
+            "<Control-Shift-E>": self.export_csv,
+            "<Control-Shift-e>": self.export_csv,
             "<Control-n>": self.next_image,
             "<Control-p>": self.previous_image,
             "<Control-Shift-A>": self.add_observation,
@@ -1281,6 +1420,8 @@ class GCPPicker:
             "<Key-plus>": self.zoom_in,
             "<Key-equal>": self.zoom_in,
             "<Key-minus>": self.zoom_out,
+            "<Key-n>": self.next_image,
+            "<Key-p>": self.previous_image,
         }
         for sequence, command in viewer_bindings.items():
             self.root.bind(sequence, lambda event, cmd=command: self._run_shortcut(event, cmd))

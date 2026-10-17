@@ -203,3 +203,9 @@ def export_records(path, records, crs=""):
             stream.write(f"# CRS: {crs}\n")
         for record in records:
             stream.write(format_record(record) + "\n")
+
+
+def update_navigation_buttons(self):
+    active = bool(self.image_files) and not self.loading
+    self.prev_button.config(state="normal" if active and self.current_index > 0 else "disabled")
+    self.next_button.config(state="normal" if active and self.current_index < len(self.image_files) - 1 else "disabled")
