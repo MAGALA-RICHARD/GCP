@@ -330,7 +330,7 @@ class GCPPicker:
         export_menu.add_command(label="CSV (.csv)", accelerator="Ctrl+Shift+E", command=self.export_csv)
         file_menu.add_cascade(label="Export", menu=export_menu)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.destroy, accelerator="Ctrl+Q")
+        file_menu.add_command(label="Exit App", command=self.root.destroy, accelerator="Ctrl+Q")
         self.file_button.config(menu=file_menu)
         self.file_button.pack(side="left", padx=(10, 4), pady=9)
 
