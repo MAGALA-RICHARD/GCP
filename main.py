@@ -179,6 +179,7 @@ class GCPPicker:
 
         self.build_ui()
         self.bind_shortcuts()
+        self.root.bind_all("<Button-1>", self.clear_text_focus_on_click, add="+")
 
     def set_app_icon(self):
         """Set the window/taskbar icon without failing if an asset is missing."""
@@ -253,7 +254,7 @@ class GCPPicker:
             self.tooltip = None
 
     def make_entry(self, parent, variable, width=18):
-        return tk.Entry(
+        entry = tk.Entry(
             parent,
             textvariable=variable,
             width=width,
@@ -269,6 +270,20 @@ class GCPPicker:
             highlightcolor="#3b82f6",
             font=("Segoe UI", 10),
         )
+        entry.bind("<Return>", self.leave_text_input)
+        entry.bind("<Escape>", self.leave_text_input)
+        return entry
+
+    def leave_text_input(self, _event=None):
+        """Leave a text field and return keyboard control to the viewer."""
+        self.canvas.focus_set()
+        return "break"
+
+    def clear_text_focus_on_click(self, event):
+        """Clicking outside an editable field returns focus to the viewer."""
+        if isinstance(event.widget, (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox)):
+            return
+        self.root.after_idle(self.canvas.focus_set)
 
     def form_row(self, parent, title, variable):
         row = tk.Frame(parent, bg=self.PANEL)
@@ -480,7 +495,8 @@ class GCPPicker:
             cursor="cross",
             highlightthickness=1,
             highlightbackground="#374151",
-            highlightcolor="#3b82f6",
+            highlightcolor="#374151",
+            # highlightcolor="#3b82f6",
         )
         self.canvas.pack(fill="both", expand=True)
 
@@ -1412,6 +1428,10 @@ class GCPPicker:
 
         # Viewer-only shortcuts are ignored while typing in an input field.
         viewer_bindings = {
+            "<Key-n>": self.next_image,
+            "<Key-N>": self.next_image,
+            "<Key-p>": self.previous_image,
+            "<Key-P>": self.previous_image,
             "<Key-f>": self.fit_image,
             "<Key-F>": self.fit_image,
             "<Key-i>": self.show_image_metadata,
@@ -1420,8 +1440,6 @@ class GCPPicker:
             "<Key-plus>": self.zoom_in,
             "<Key-equal>": self.zoom_in,
             "<Key-minus>": self.zoom_out,
-            "<Key-n>": self.next_image,
-            "<Key-p>": self.previous_image,
         }
         for sequence, command in viewer_bindings.items():
             self.root.bind(sequence, lambda event, cmd=command: self._run_shortcut(event, cmd))
