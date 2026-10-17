@@ -330,7 +330,7 @@ class GCPPicker:
         export_menu.add_command(label="CSV (.csv)", accelerator="Ctrl+Shift+E", command=self.export_csv)
         file_menu.add_cascade(label="Export", menu=export_menu)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.destroy)
+        file_menu.add_command(label="Exit", command=self.root.destroy, accelerator="Ctrl+Q")
         self.file_button.config(menu=file_menu)
         self.file_button.pack(side="left", padx=(10, 4), pady=9)
 
@@ -1422,6 +1422,8 @@ class GCPPicker:
             "<Control-Shift-a>": self.add_observation,
             "<Control-Shift-N>": self.add_and_next,
             "<Control-Shift-n>": self.add_and_next,
+            "<Control-q>": self.root.destroy,
+            "<Control-Q>": self.root.destroy,
         }
         for sequence, command in commands.items():
             self.root.bind(sequence, lambda _event, cmd=command: (cmd(), "break")[1])
