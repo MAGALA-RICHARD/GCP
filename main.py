@@ -334,6 +334,7 @@ class GCPPicker:
         self.file_button.config(menu=file_menu)
         self.file_button.pack(side="left", padx=(10, 4), pady=9)
 
+
     def build_ui(self):
         toolbar = tk.Frame(self.root, bg=self.PANEL, height=56)
         toolbar.pack(fill="x")
@@ -405,8 +406,7 @@ class GCPPicker:
             highlightthickness=1,
             bd=0,
             padx=14,
-            pady=12,
-        )
+            pady=12, )
         info_card.pack(fill="x")
 
         top_row = tk.Frame(info_card, bg="#0f172a")
