@@ -325,19 +325,15 @@ class GCPPicker:
         file_menu.add_command(label="Open File...", accelerator="Ctrl+Shift+O", command=self.open_file)
         file_menu.add_separator()
 
-        export_menu = tk.Menu(
-            file_menu, tearoff=False, bg="#111827", fg="#f8fafc",
-            activebackground=self.BLUE, activeforeground="white",
-            relief="flat", bd=1, font=("Segoe UI", 9),
+        file_menu.add_command(
+            label="Export records",
+            accelerator="Ctrl+E",
+            command=self.export_records_dialog,
         )
-        export_menu.add_command(label="TXT (.txt)", accelerator="Ctrl+E", command=self.export_txt)
-        export_menu.add_command(label="CSV (.csv)", accelerator="Ctrl+Shift+E", command=self.export_csv)
-        file_menu.add_cascade(label="Export records", menu=export_menu)
         file_menu.add_separator()
         file_menu.add_command(label="Exit App", command=self.root.destroy, accelerator="Ctrl+Q")
         self.file_button.config(menu=file_menu)
         self.file_button.pack(side="left", padx=(10, 4), pady=9)
-
 
     def build_ui(self):
         toolbar = tk.Frame(self.root, bg=self.PANEL, height=56)
@@ -354,7 +350,8 @@ class GCPPicker:
 
         jump = tk.Frame(toolbar, bg=self.PANEL)
         jump.pack(side="left", padx=(10, 0), pady=9)
-        tk.Label(jump, text="Jump", bg=self.PANEL, fg=self.MUTED, font=("Segoe UI", 9, "bold")).pack(side="left", padx=(0, 4))
+        tk.Label(jump, text="Jump", bg=self.PANEL, fg=self.MUTED, font=("Segoe UI", 9, "bold")).pack(side="left",
+                                                                                                     padx=(0, 4))
 
         self.jump_minus_button = self.make_button(jump, "−", lambda: self.adjust_jump_target(-1))
         self.jump_minus_button.config(padx=8, pady=6)
@@ -589,13 +586,23 @@ class GCPPicker:
         key.pack(side="right")
         if enabled:
             def enter(_e):
-                row.config(bg="#1e3a5f"); label.config(bg="#1e3a5f"); key.config(bg="#1e3a5f", fg="#bfdbfe")
+                row.config(bg="#1e3a5f");
+                label.config(bg="#1e3a5f");
+                key.config(bg="#1e3a5f", fg="#bfdbfe")
+
             def leave(_e):
-                row.config(bg="#111827"); label.config(bg="#111827"); key.config(bg="#111827", fg="#64748b")
+                row.config(bg="#111827");
+                label.config(bg="#111827");
+                key.config(bg="#111827", fg="#64748b")
+
             def run(_e=None):
-                self._close_image_context_menu(); command()
+                self._close_image_context_menu();
+                command()
+
             for widget in (row, label, key):
-                widget.bind("<Enter>", enter); widget.bind("<Leave>", leave); widget.bind("<Button-1>", run)
+                widget.bind("<Enter>", enter);
+                widget.bind("<Leave>", leave);
+                widget.bind("<Button-1>", run)
         return row
 
     def _context_separator(self, parent):
@@ -644,8 +651,13 @@ class GCPPicker:
         self._context_action(card, "Next image", self.next_image, "Ctrl+N",
                              self.current_index < len(self.image_files) - 1)
         self._context_separator(card)
-        self._context_action(card, "Export TXT", self.export_txt, "Ctrl+E", bool(self.records))
-        self._context_action(card, "Export CSV", self.export_csv, "Ctrl+Shift+E", bool(self.records))
+        self._context_action(
+            card,
+            "Export records",
+            self.export_records_dialog,
+            "Ctrl+E",
+            bool(self.records),
+        )
 
         menu.update_idletasks()
         x_pos = min(event.x_root + 8, menu.winfo_screenwidth() - menu.winfo_reqwidth() - 8)
@@ -1002,7 +1014,7 @@ class GCPPicker:
         self.fit_after_load = False
         self.info_label.config(
             text=f"Could not open image: {error}",
-            fg="#fca5a5",)
+            fg="#fca5a5", )
         self.raster_card.set_value("--")
         self.band_card.set_value("--")
         self.pixel_card.set_value("--")
@@ -1031,7 +1043,6 @@ class GCPPicker:
             self.image_files[self.current_index],
             f"Loading previous image... ({self.current_index + 1} / {len(self.image_files)})",
         )
-
 
     def _get_jump_number(self):
         """Return the typed 1-based image number, or None if it is invalid."""
@@ -1144,7 +1155,6 @@ class GCPPicker:
             self.jump_target_index = self.current_index
             self.jump_var.set(str(self.current_index + 1))
         self.update_jump_controls()
-
 
     def update_navigation_buttons(self):
         """Navigate the image queue and keep jump controls in sync."""
@@ -1292,19 +1302,13 @@ class GCPPicker:
     # Export
     # =========================================================
 
-    def export_txt(self):
-        self.export_records_dialog("txt")
-
-    def export_csv(self):
-        self.export_records_dialog("csv")
-
-    def export_records_dialog(self, file_format):
+    def export_records_dialog(self):
         if not self.records:
             messagebox.showwarning("Nothing to export", "Add at least one observation first.")
             return
-        self.show_export_dialog(sorted(self.records), file_format)
+        self.show_export_dialog(sorted(self.records))
 
-    def show_export_dialog(self, suffixes, file_format="txt"):
+    def show_export_dialog(self, suffixes):
         dialog = tk.Toplevel(self.root)
         dialog.title("Export Observations")
         dialog.configure(bg=self.PANEL)
@@ -1331,7 +1335,7 @@ class GCPPicker:
         self.make_button(
             dialog,
             f"Export ALL ({total_records(self.records)})",
-            lambda: self.export_group(dialog, file_format=file_format),
+            lambda: self.export_group(dialog),
             self.PURPLE,
         ).pack(fill="x", padx=25, pady=4)
 
@@ -1340,7 +1344,7 @@ class GCPPicker:
             self.make_button(
                 dialog,
                 f"Export {suffix} ({count})",
-                lambda s=suffix: self.export_group(dialog, s, file_format),
+                lambda s=suffix: self.export_group(dialog, s),
                 self.BLUE,
             ).pack(fill="x", padx=25, pady=4)
 
@@ -1353,32 +1357,50 @@ class GCPPicker:
         dialog.update_idletasks()
         x = self.root.winfo_rootx() + (self.root.winfo_width() - dialog.winfo_width()) // 2
         y = self.root.winfo_rooty() + (self.root.winfo_height() - dialog.winfo_height()) // 2
-
         dialog.geometry(f"+{x}+{y}")
 
-    def export_group(self, dialog, suffix=None, file_format="txt"):
+    def export_files(self, path: str, records) -> None:
+        path = Path(path)
+        extension = path.suffix.lower()
+
+        if extension == ".csv":
+            self.write_csv(path, records)
+        elif extension in {".gcp", ".txt"}:
+            export_records(path, records, self.crs_var.get().strip())
+        else:
+            raise ValueError(f"Unsupported export format: {path.suffix or 'no extension'}")
+
+    def export_group(self, dialog, suffix=None):
         dialog.destroy()
         records = sorted_all_records(self.records) if suffix is None else sorted_group(self.records, suffix)
         description = "all groups" if suffix is None else suffix
         stem = "gcp_all" if suffix is None else f"gcp_{suffix.lstrip('.') or 'records'}"
-        ext = ".csv" if file_format == "csv" else ".txt"
+
         path = filedialog.asksaveasfilename(
-            defaultextension=ext,
-            initialfile=stem + ext,
-            filetypes=[("CSV file", "*.csv"), ("All files", "*.*")] if file_format == "csv"
-                      else [("Text file", "*.txt"), ("All files", "*.*")],
+            title="Export GCP observations",
+            defaultextension=".gcp",
+            initialfile=stem,
+            filetypes=[
+                ("GCP file", "*.gcp"),
+                ("Text file", "*.txt"),
+                ("CSV file", "*.csv"),
+                ("All files", "*.*"),
+            ],
         )
+
         if not path:
             return
+
         try:
-            if file_format == "csv":
-                self.write_csv(path, records)
-            else:
-                export_records(path, records, self.crs_var.get().strip())
-        except OSError as error:
+            self.export_files(path=path, records=records)
+        except (OSError, ValueError) as error:
             messagebox.showerror("Export failed", str(error))
             return
-        messagebox.showinfo("Export complete", f"Exported {len(records)} record(s) from {description}.\n\n{path}")
+
+        messagebox.showinfo(
+            "Export complete",
+            f"Exported {len(records)} record(s) from {description}.\n\n{path}",
+        )
 
     def write_csv(self, path, records):
         crs = self.crs_var.get().strip()
@@ -1463,14 +1485,14 @@ class GCPPicker:
         self.zoom_at(
             self.canvas.winfo_width() / 2,
             self.canvas.winfo_height() / 2,
-            factor,)
+            factor, )
 
     def mouse_zoom(self, event):
         if self.image is not None:
             self.zoom_at(
                 event.x,
                 event.y,
-                1.20 if event.delta > 0 else 1 / 1.20,)
+                1.20 if event.delta > 0 else 1 / 1.20, )
 
     def mouse_zoom_linux(self, event):
         if self.image is not None:
@@ -1626,9 +1648,7 @@ class GCPPicker:
             "<Control-o>": self.open_folder,
             "<Control-Shift-O>": self.open_file,
             "<Control-Shift-o>": self.open_file,
-            "<Control-e>": self.export_txt,
-            "<Control-Shift-E>": self.export_csv,
-            "<Control-Shift-e>": self.export_csv,
+            "<Control-e>": self.export_records_dialog,
             "<Control-n>": self.next_image,
             "<Control-p>": self.previous_image,
             "<Control-Shift-A>": self.add_observation,
@@ -1668,4 +1688,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
