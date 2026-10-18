@@ -164,6 +164,8 @@ class GCPPicker:
         self.loading = False
         self.first_display = True
         self.fit_after_load = False
+        self.spinner_angle = 0
+        self.spinner_job = None
 
         self.records = {}
         self.tree_records = {}
@@ -275,15 +277,15 @@ class GCPPicker:
         return entry
 
     def leave_text_input(self, _event=None):
-        """Leave a text field and return keyboard control to the viewer."""
-        self.canvas.focus_set()
+        """Leave a text field and return keyboard control to the application."""
+        self.root.focus_set()
         return "break"
 
     def clear_text_focus_on_click(self, event):
-        """Clicking outside an editable field returns focus to the viewer."""
+        """Clicking outside an editable field removes text-entry focus."""
         if isinstance(event.widget, (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox)):
             return
-        self.root.after_idle(self.canvas.focus_set)
+        self.root.after_idle(self.root.focus_set)
 
     def form_row(self, parent, title, variable):
         row = tk.Frame(parent, bg=self.PANEL)
@@ -496,7 +498,7 @@ class GCPPicker:
             highlightthickness=1,
             highlightbackground="#374151",
             highlightcolor="#374151",
-            # highlightcolor="#3b82f6",
+            takefocus=False,
         )
         self.canvas.pack(fill="both", expand=True)
 
@@ -771,11 +773,62 @@ class GCPPicker:
         self.make_button(actions, "Clear All", self.clear_all).pack(side="right")
 
     # =========================================================
+    # Loading indicator / project reset
+    # =========================================================
+
+    def start_loading_indicator(self):
+        """Draw a background-free spinner directly over the image canvas."""
+        self.spinner_angle = 0
+        if self.spinner_job is None:
+            self._animate_loading_spinner()
+
+    def _animate_loading_spinner(self):
+        if not self.loading:
+            self.spinner_job = None
+            self.canvas.delete("loading_spinner")
+            return
+
+        self.canvas.delete("loading_spinner")
+        cx = self.canvas.winfo_width() / 2
+        cy = self.canvas.winfo_height() / 2
+        radius = 25
+        self.canvas.create_arc(
+            cx - radius, cy - radius, cx + radius, cy + radius,
+            start=self.spinner_angle, extent=105, style="arc",
+            outline="#60a5fa", width=5, tags="loading_spinner",
+        )
+        self.canvas.tag_raise("loading_spinner")
+        self.spinner_angle = (self.spinner_angle + 18) % 360
+        self.spinner_job = self.root.after(35, self._animate_loading_spinner)
+
+    def stop_loading_indicator(self):
+        """Stop and remove the image-canvas loading spinner."""
+        if self.spinner_job is not None:
+            with suppress(tk.TclError):
+                self.root.after_cancel(self.spinner_job)
+            self.spinner_job = None
+        self.canvas.delete("loading_spinner")
+
+    def reset_project(self):
+        """Clear records and form state only when a new project is opened."""
+        self.records.clear()
+        self.tree_records.clear()
+        self.selected = None
+        self.x_var.set("")
+        self.y_var.set("")
+        self.z_var.set("")
+        self.label_var.set("")
+        self.crs_var.set("EPSG:4326")
+        self.refresh_record_table()
+        self.pixel_card.set_value("--")
+        self.update_description()
+
+    # =========================================================
     # Image loading
     # =========================================================
 
     def open_folder(self):
-        """Open a directory and load the first supported image in it."""
+        """Open a directory as a new project and load its first supported image."""
         if self.loading:
             return
 
@@ -787,7 +840,7 @@ class GCPPicker:
         supported = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
         try:
-            self.image_files = sorted(
+            image_files = sorted(
                 (p.resolve() for p in folder.iterdir() if p.is_file() and p.suffix.lower() in supported),
                 key=lambda p: p.name.lower(),
             )
@@ -795,23 +848,26 @@ class GCPPicker:
             messagebox.showerror("Folder error", str(error))
             return
 
-        if not self.image_files:
+        if not image_files:
             messagebox.showwarning(
                 "No supported images",
                 "The selected folder does not contain JPG, JPEG, PNG, TIF, or TIFF images.",
             )
             return
 
+        self.reset_project()
+        self.image_files = image_files
         self.current_index = 0
+        self.fit_after_load = False
         self.update_counter()
         self.update_navigation_buttons()
-        self.fit_after_load = False
         self.load_image(self.image_files[0])
 
     def open_file(self):
-        """Open one supported image without changing the source image dimensions."""
+        """Open one supported image as a new project."""
         if self.loading:
             return
+
         path = filedialog.askopenfilename(
             title="Open Image",
             filetypes=[
@@ -824,10 +880,13 @@ class GCPPicker:
         )
         if not path:
             return
+
         path = Path(path).resolve()
         if path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".tif", ".tiff"}:
             messagebox.showwarning("Unsupported image", "Choose a JPG, JPEG, PNG, TIF, or TIFF image.")
             return
+
+        self.reset_project()
         self.image_files = [path]
         self.current_index = 0
         self.fit_after_load = False
@@ -835,13 +894,14 @@ class GCPPicker:
         self.update_navigation_buttons()
         self.load_image(path)
 
-    def load_image(self, path):
+    def load_image(self, path, loading_message="Loading image..."):
         if self.loading:
             return
 
         self.loading = True
-        self.info_label.config(text="Loading image...", fg="#60a5fa")
+        self.info_label.config(text=loading_message, fg="#60a5fa")
         self.update_navigation_buttons()
+        self.start_loading_indicator()
         threading.Thread(
             target=self.load_image_worker,
             args=(Path(path),),
@@ -866,6 +926,7 @@ class GCPPicker:
 
         self.selected = None
         self.loading = False
+        self.stop_loading_indicator()
         self.first_display = True
 
         with suppress(ValueError):
@@ -899,6 +960,7 @@ class GCPPicker:
 
     def loading_failed(self, error):
         self.loading = False
+        self.stop_loading_indicator()
         self.fit_after_load = False
         self.info_label.config(
             text=f"Could not open image: {error}",
@@ -917,13 +979,20 @@ class GCPPicker:
             return
         self.current_index += 1
         self.fit_after_load = True
-        self.load_image(self.image_files[self.current_index])
+        self.load_image(
+            self.image_files[self.current_index],
+            f"Loading next image... ({self.current_index + 1} / {len(self.image_files)})",
+        )
 
     def previous_image(self):
         if self.loading or not self.image_files or self.current_index <= 0:
             return
         self.current_index -= 1
-        self.load_image(self.image_files[self.current_index])
+        self.fit_after_load = True
+        self.load_image(
+            self.image_files[self.current_index],
+            f"Loading previous image... ({self.current_index + 1} / {len(self.image_files)})",
+        )
 
 
     def update_counter(self):
@@ -1455,3 +1524,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
