@@ -169,6 +169,8 @@ class GCPPicker:
 
         self.records = {}
         self.tree_records = {}
+        self.jump_target_index = 0
+        self.jump_var = tk.StringVar(value="")
 
         self.x_var = tk.StringVar()
         self.y_var = tk.StringVar()
@@ -349,6 +351,40 @@ class GCPPicker:
 
         self.prev_button.pack(side="left", padx=4, pady=9)
         self.next_button.pack(side="left", padx=4, pady=9)
+
+        jump = tk.Frame(toolbar, bg=self.PANEL)
+        jump.pack(side="left", padx=(10, 0), pady=9)
+        tk.Label(jump, text="Jump", bg=self.PANEL, fg=self.MUTED, font=("Segoe UI", 9, "bold")).pack(side="left", padx=(0, 4))
+
+        self.jump_minus_button = self.make_button(jump, "−", lambda: self.adjust_jump_target(-1))
+        self.jump_minus_button.config(padx=8, pady=6)
+        self.jump_minus_button.pack(side="left")
+
+        self.jump_entry = tk.Entry(
+            jump, textvariable=self.jump_var, width=4, justify="center",
+            bg="#0f172a", fg="#e5e7eb", insertbackground="white",
+            selectbackground=self.BLUE, selectforeground="white",
+            relief="solid", bd=1, highlightthickness=1,
+            highlightbackground="#374151", highlightcolor="#3b82f6",
+            font=("Segoe UI", 9, "bold"),
+        )
+        self.jump_entry.pack(side="left", padx=(3, 2), ipady=5)
+        self.jump_entry.bind("<Return>", lambda _e: self.jump_to_image())
+
+        self.jump_total_label = tk.Label(
+            jump, text="/ --", bg=self.PANEL, fg=self.MUTED,
+            font=("Segoe UI", 9, "bold"),
+        )
+        self.jump_total_label.pack(side="left", padx=(0, 3))
+
+        self.jump_plus_button = self.make_button(jump, "+", lambda: self.adjust_jump_target(1))
+        self.jump_plus_button.config(padx=8, pady=6)
+        self.jump_plus_button.pack(side="left")
+
+        self.jump_go_button = self.make_button(jump, "Go", self.jump_to_image, self.BLUE)
+        self.jump_go_button.config(padx=9, pady=6)
+        self.jump_go_button.pack(side="left", padx=(4, 0))
+
         self.add_button.pack(side="left", padx=(14, 4), pady=9)
         self.add_next_button.pack(side="left", padx=4, pady=9)
 
@@ -858,6 +894,7 @@ class GCPPicker:
         self.reset_project()
         self.image_files = image_files
         self.current_index = 0
+        self.jump_target_index = 0
         self.fit_after_load = False
         self.update_counter()
         self.update_navigation_buttons()
@@ -889,6 +926,7 @@ class GCPPicker:
         self.reset_project()
         self.image_files = [path]
         self.current_index = 0
+        self.jump_target_index = 0
         self.fit_after_load = False
         self.update_counter()
         self.update_navigation_buttons()
@@ -995,17 +1033,123 @@ class GCPPicker:
         )
 
 
+    def _get_jump_number(self):
+        """Return the typed 1-based image number, or None if it is invalid."""
+        try:
+            return int(self.jump_var.get().strip())
+        except ValueError:
+            return None
+
+    def adjust_jump_target(self, delta):
+        """Change the target image number without loading intermediate files."""
+        if self.loading or not self.image_files:
+            return
+
+        number = self._get_jump_number()
+        if number is None:
+            number = self.current_index + 1
+
+        number = max(1, min(number + delta, len(self.image_files)))
+        self.jump_target_index = number - 1
+        self.jump_var.set(str(number))
+        self.update_jump_controls()
+
+    def jump_to_image(self):
+        """Load only the valid image number entered in the queue control."""
+        if self.loading or not self.image_files:
+            return
+
+        number = self._get_jump_number()
+        total = len(self.image_files)
+
+        if number is None:
+            messagebox.showwarning("Invalid image number", "Enter a whole image number.")
+            self.jump_var.set(str(self.current_index + 1))
+            self.update_jump_controls()
+            return
+
+        if not 1 <= number <= total:
+            messagebox.showwarning(
+                "Invalid image number",
+                f"Enter an image number between 1 and {total}.",
+            )
+            self.jump_var.set(str(self.current_index + 1))
+            self.update_jump_controls()
+            return
+
+        target = number - 1
+        self.jump_target_index = target
+
+        if target == self.current_index:
+            self.update_jump_controls()
+            return
+
+        old_index = self.current_index
+        self.current_index = target
+        self.fit_after_load = True
+        direction = "next" if target > old_index else "previous"
+        self.load_image(
+            self.image_files[target],
+            f"Loading {direction} image... ({target + 1} / {total})",
+        )
+
+    def update_jump_controls(self):
+        """Keep the writable queue-jump control synchronized with the image queue."""
+        if not hasattr(self, "jump_entry"):
+            return
+
+        if not self.image_files:
+            self.jump_target_index = 0
+            self.jump_var.set("")
+            self.jump_total_label.config(text="/ --")
+            self.jump_entry.config(state="disabled")
+            for button in (self.jump_minus_button, self.jump_plus_button, self.jump_go_button):
+                button.config(state="disabled")
+            return
+
+        total = len(self.image_files)
+        self.jump_target_index = max(0, min(self.jump_target_index, total - 1))
+        number = self._get_jump_number()
+
+        if number is None:
+            number = self.jump_target_index + 1
+            self.jump_var.set(str(number))
+        elif 1 <= number <= total:
+            self.jump_target_index = number - 1
+
+        enabled = not self.loading
+        self.jump_entry.config(state="normal" if enabled else "disabled")
+        self.jump_total_label.config(text=f"/ {total}")
+
+        valid = number is not None and 1 <= number <= total
+        target = number - 1 if valid else self.current_index
+
+        self.jump_minus_button.config(
+            state="normal" if enabled and valid and number > 1 else "disabled"
+        )
+        self.jump_plus_button.config(
+            state="normal" if enabled and valid and number < total else "disabled"
+        )
+        self.jump_go_button.config(
+            state="normal" if enabled and valid and target != self.current_index else "disabled"
+        )
+
     def update_counter(self):
         text = (
             f"{self.current_index + 1} / {len(self.image_files)}"
             if self.image_files and self.current_index >= 0
             else "")
         self.counter_label.config(text=text)
+        if self.image_files and self.current_index >= 0:
+            self.jump_target_index = self.current_index
+            self.jump_var.set(str(self.current_index + 1))
+        self.update_jump_controls()
 
 
     def update_navigation_buttons(self):
-        """navigate the folder"""
+        """Navigate the image queue and keep jump controls in sync."""
         update_navigation_buttons(self)
+        self.update_jump_controls()
 
     # =========================================================
     # Records

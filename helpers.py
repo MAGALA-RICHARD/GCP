@@ -200,7 +200,7 @@ def export_records(path, records, crs=""):
     path = Path(path)
     with path.open("w", encoding="utf-8", newline="\n") as stream:
         if crs:
-            stream.write(f"# CRS: {crs}\n")
+            stream.write(f"{crs}\n")
         for record in records:
             stream.write(format_record(record) + "\n")
 
