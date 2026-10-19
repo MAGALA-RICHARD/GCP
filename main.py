@@ -120,6 +120,24 @@ class RoundedInfoCard(tk.Canvas):
         )
 
 
+class CompactInfoValue(tk.Label):
+    """Small value label used by the compact image-information header."""
+
+    def __init__(self, parent, value="--", color="#f8fafc"):
+        super().__init__(
+            parent,
+            text=value,
+            bg="#0f172a",
+            fg=color,
+            anchor="w",
+            justify="left",
+            font=("Segoe UI", 10, "bold"),
+        )
+
+    def set_value(self, value):
+        self.config(text=value)
+
+
 class GCPPicker:
     BG = "#111827"
     PANEL = "#1f2937"
@@ -434,6 +452,8 @@ class GCPPicker:
         header = tk.Frame(parent, bg=self.BG)
         header.pack(fill="x", pady=(0, 10))
 
+        # Compact single-row image information header (Option 2).
+        # Existing metadata, status messages and image-counter behavior are preserved.
         info_card = tk.Frame(
             header,
             bg="#0f172a",
@@ -441,25 +461,79 @@ class GCPPicker:
             highlightthickness=1,
             bd=0,
             padx=14,
-            pady=12, )
+            pady=10,
+        )
         info_card.pack(fill="x")
+        info_card.columnconfigure(0, weight=1)
 
-        top_row = tk.Frame(info_card, bg="#0f172a")
-        top_row.pack(fill="x")
+        image_info = tk.Frame(info_card, bg="#0f172a")
+        image_info.grid(row=0, column=0, sticky="ew", padx=(0, 14))
 
         self.filename_label = tk.Label(
-            top_row,
+            image_info,
             text="No image loaded",
             bg="#0f172a",
             fg=self.TEXT,
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 11, "bold"),
             anchor="w",
             justify="left",
         )
-        self.filename_label.pack(side="left", fill="x", expand=True)
+        self.filename_label.pack(fill="x")
 
-        counter_wrap = tk.Frame(top_row, bg="#1d4ed8", bd=0)
-        counter_wrap.pack(side="right", padx=(10, 0))
+        self.info_label = tk.Label(
+            image_info,
+            text="Open an image and click the center of the GCP.",
+            bg="#0f172a",
+            fg=self.MUTED,
+            anchor="w",
+            justify="left",
+            font=("Segoe UI", 8),
+            pady=3,
+        )
+        self.info_label.pack(fill="x")
+
+        def separator(column):
+            tk.Frame(
+                info_card,
+                bg="#263244",
+                width=1,
+            ).grid(row=0, column=column, sticky="ns", padx=10, pady=2)
+
+        def info_block(column, title, title_color, value_color, width=14):
+            block = tk.Frame(info_card, bg="#0f172a")
+            block.grid(row=0, column=column, sticky="w")
+
+            tk.Label(
+                block,
+                text=title,
+                bg="#0f172a",
+                fg=title_color,
+                anchor="w",
+                font=("Segoe UI", 8),
+            ).pack(fill="x")
+
+            value = CompactInfoValue(
+                block,
+                color=value_color,
+            )
+            value.config(width=width)
+            value.pack(fill="x", pady=(2, 0))
+            return value
+
+        separator(1)
+        self.raster_card = info_block(2, "RASTER SIZE", "#99f6e4", "#ecfeff", 16)
+
+        separator(3)
+        self.band_card = info_block(4, "BANDS", "#bfdbfe", "#eff6ff", 12)
+
+        separator(5)
+        self.pixel_card = info_block(6, "SELECTED PIXEL", "#fcd34d", "#fff7ed", 24)
+
+        navigation = tk.Frame(info_card, bg="#0f172a")
+        navigation.grid(row=0, column=7, sticky="e", padx=(14, 0))
+
+        counter_wrap = tk.Frame(navigation, bg="#1d4ed8", bd=0)
+        counter_wrap.pack(side="left", padx=(0, 7))
         self.counter_label = tk.Label(
             counter_wrap,
             text="",
@@ -467,62 +541,40 @@ class GCPPicker:
             fg="white",
             font=("Segoe UI", 9, "bold"),
             padx=10,
-            pady=4,
+            pady=5,
         )
         self.counter_label.pack()
 
-        self.info_label = tk.Label(
-            info_card,
-            text="Open an image and click the center of the GCP.",
-            bg="#0f172a",
-            fg=self.MUTED,
-            anchor="w",
-            justify="left",
-            font=("Segoe UI", 9),
-            pady=6,
+        nav_button_options = dict(
+            bg="#172033",
+            fg="white",
+            activebackground="#243044",
+            activeforeground="white",
+            disabledforeground="#526076",
+            relief="flat",
+            bd=0,
+            width=3,
+            padx=3,
+            pady=2,
+            font=("Segoe UI", 13, "bold"),
+            cursor="hand2",
         )
-        self.info_label.pack(fill="x")
 
-        meta_row = tk.Frame(info_card, bg="#0f172a")
-        meta_row.pack(fill="x", pady=(4, 0))
-        meta_row.columnconfigure(0, weight=1, uniform="meta")
-        meta_row.columnconfigure(1, weight=1, uniform="meta")
+        self.header_prev_button = tk.Button(
+            navigation,
+            text="<",
+            command=self.previous_image,
+            **nav_button_options,
+        )
+        self.header_prev_button.pack(side="left", padx=(0, 4))
 
-        self.raster_card = RoundedInfoCard(
-            meta_row,
-            "RASTER SIZE",
-            fill="black",
-            outline="black",
-            title_color="#99f6e4",
-            value_color="#ecfeff",
-            height=68,
-            radius=18,
+        self.header_next_button = tk.Button(
+            navigation,
+            text=">",
+            command=self.next_image,
+            **nav_button_options,
         )
-        self.raster_card.grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        # e5e7eb
-        self.band_card = RoundedInfoCard(
-            meta_row,
-            "BANDS",
-            fill="black",
-            outline="black",  # or #e5e7eb
-            title_color="#bfdbfe",
-            value_color="#eff6ff",
-            height=68,
-            radius=18,
-        )
-        self.band_card.grid(row=0, column=1, sticky="ew", padx=(5, 0))
-
-        self.pixel_card = RoundedInfoCard(
-            info_card,
-            "SELECTED PIXEL",
-            fill="black",
-            outline="black",
-            title_color="#fcd34d",
-            value_color="#fff7ed",
-            height=76,
-            radius=18,
-        )
-        self.pixel_card.pack(fill="x", pady=(10, 0))
+        self.header_next_button.pack(side="left")
 
         self.canvas = tk.Canvas(
             parent,
@@ -1160,6 +1212,21 @@ class GCPPicker:
         """Navigate the image queue and keep jump controls in sync."""
         update_navigation_buttons(self)
         self.update_jump_controls()
+
+        # Keep the compact header < > controls synchronized with the
+        # existing Previous / Next buttons.
+        if hasattr(self, "header_prev_button") and hasattr(self, "header_next_button"):
+            enabled = bool(self.image_files) and not self.loading
+            self.header_prev_button.config(
+                state="normal" if enabled and self.current_index > 0 else "disabled"
+            )
+            self.header_next_button.config(
+                state=(
+                    "normal"
+                    if enabled and self.current_index < len(self.image_files) - 1
+                    else "disabled"
+                )
+            )
 
     # =========================================================
     # Records
