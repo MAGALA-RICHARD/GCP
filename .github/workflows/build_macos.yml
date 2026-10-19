@@ -11,15 +11,7 @@ permissions:
 
 jobs:
   build-macos:
-    strategy:
-      matrix:
-        include:
-          - runner: macos-14
-            arch: arm64
-          - runner: macos-13
-            arch: x64
-
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-14
 
     steps:
       - name: Checkout
@@ -29,39 +21,32 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
+          cache: pip
 
-      - name: Install GDAL
+      - name: Install dependencies
         run: |
-          brew update
           brew install gdal
-          echo "$(brew --prefix gdal)/bin" >> "$GITHUB_PATH"
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
           export GDAL_CONFIG="$(brew --prefix gdal)/bin/gdal-config"
-          "$GDAL_CONFIG" --version
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
 
-      - name: Build macOS app
+      - name: Build
         run: pyinstaller --clean --noconfirm GCPPixelPicker-macos.spec
 
-      - name: Package macOS app
+      - name: Package
         run: |
           ditto -c -k --sequesterRsrc --keepParent \
             "dist/GCP Pixel Picker.app" \
-            "GCPPixelPicker-macOS-${{ matrix.arch }}.zip"
+            "GCPPixelPicker-macOS-arm64.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GCPPixelPicker-macOS-${{ matrix.arch }}
-          path: GCPPixelPicker-macOS-${{ matrix.arch }}.zip
+          name: GCPPixelPicker-macOS-arm64
+          path: GCPPixelPicker-macOS-arm64.zip
 
-      - name: Attach to GitHub Release
+      - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: GCPPixelPicker-macOS-${{ matrix.arch }}.zip
+          files: GCPPixelPicker-macOS-arm64.zip
