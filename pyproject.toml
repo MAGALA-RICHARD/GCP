@@ -3,6 +3,9 @@ name = "gcp-pixel-picker"
 version = "1.0.0"
 description = "Desktop utility for selecting and exporting GCP pixel coordinates from RGB and multispectral imagery."
 readme = "README.rst"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+
 requires-python = ">=3.12"
 dependencies = [
     "Pillow>=10.0",
