@@ -209,7 +209,7 @@ class GCPPicker:
         ico_path = resource_path("app_icon.ico")
 
         try:
-            # iconphoto is portable and keeps the PhotoImage alive on the instance.
+            # icon photo is portable and keeps the PhotoImage alive on the instance.
             if png_path.exists():
                 self.app_icon = tk.PhotoImage(file=str(png_path))
                 self.root.iconphoto(True, self.app_icon)
