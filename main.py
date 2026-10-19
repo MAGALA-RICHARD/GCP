@@ -142,19 +142,19 @@ class GCPPicker:
     BG = "#111827"
     PANEL = "#1f2937"
     CANVAS_BG = "#030712"
-
     TEXT = "#f9fafb"
     MUTED = "#9ca3af"
-
     BLUE = "#2563eb"
     GREEN = "#059669"
     PURPLE = "#7c3aed"
     RED = "#dc2626"
     YELLOW = "#fbbf24"
+    APP_NAME = "GCPP"
+    APP_VERSION = "0.0.6"
 
     def __init__(self, root):
         self.root = root
-        self.root.title("GCP Pixel Picker")
+        self.root.title(f"{self.APP_NAME} v{self.APP_VERSION}")
         self.root.geometry("1450x900")
         self.root.minsize(1050, 680)
         self.root.configure(bg=self.BG)
@@ -1036,7 +1036,7 @@ class GCPPicker:
 
         filename = self.image_path.name
 
-        self.root.title(f"GCP Pixel Picker - {filename}")
+        self.root.title(f"GCPP v{self.APP_VERSION}- {filename}")
         self.filename_label.config(text=filename)
 
         self.info_label.config(
