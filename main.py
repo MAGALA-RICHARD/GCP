@@ -1741,8 +1741,7 @@ class GCPPicker:
             "<Key-0>": self.actual_size,
             "<Key-plus>": self.zoom_in,
             "<Key-equal>": self.zoom_in,
-            "<Key-minus>": self.zoom_out,
-        }
+            "<Key-minus>": self.zoom_out, }
         for sequence, command in viewer_bindings.items():
             self.root.bind(sequence, lambda event, cmd=command: self._run_shortcut(event, cmd))
 
