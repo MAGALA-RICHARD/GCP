@@ -1746,7 +1746,7 @@ class GCPPicker:
         for sequence, command in viewer_bindings.items():
             self.root.bind(sequence, lambda event, cmd=command: self._run_shortcut(event, cmd))
 
-filedialog.askopenfiles()
+
 def main():
     root = tk.Tk()
     GCPPicker(root)
