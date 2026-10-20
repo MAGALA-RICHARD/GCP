@@ -1,4 +1,4 @@
-Ground Control Points Pixel Picker (GCPP)
+Ground Control Points Editor (GCPE)
 ===========================================
 
 |version| |license| |windows| |linux| |macos-arm64| |macos-intel|

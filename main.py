@@ -1,4 +1,7 @@
 import csv
+import json
+import shutil
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -6,7 +9,7 @@ from contextlib import suppress
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from PIL import Image, ImageTk
+from PIL import ExifTags, Image, ImageTk
 
 from helpers import (
     add_record,
@@ -149,7 +152,7 @@ class GCPPicker:
     PURPLE = "#7c3aed"
     RED = "#dc2626"
     YELLOW = "#fbbf24"
-    APP_NAME = "GCPP"
+    APP_NAME = "GCPE"
     APP_VERSION = "0.0.6"
 
     def __init__(self, root):
@@ -719,6 +722,47 @@ class GCPPicker:
         menu.bind("<FocusOut>", self._close_image_context_menu)
         menu.focus_force()
 
+    def extract_image_metadata(self, path):
+        """Read available EXIF/GPS/XMP without modifying the original image."""
+        details = {}
+        tool = shutil.which("exiftool")
+        if tool:
+            try:
+                result = subprocess.run(
+                    [tool, "-json", "-a", "-G1", str(path)],
+                    capture_output=True, text=True, check=True, timeout=20,
+                )
+                for key, value in json.loads(result.stdout)[0].items():
+                    if key not in {"SourceFile"}:
+                        details[key] = value
+                return details, "ExifTool (EXIF, XMP and manufacturer metadata)"
+            except (OSError, subprocess.SubprocessError, ValueError, IndexError, KeyError):
+                pass  # Continue with Pillow when ExifTool is unavailable.
+
+        try:
+            with Image.open(path) as img:
+                exif = img.getexif()
+                for tag, value in exif.items():
+                    name = ExifTags.TAGS.get(tag, str(tag))
+                    if name not in {"ExifOffset", "GPSInfo", "InteropOffset"}:
+                        details[f"EXIF:{name}"] = value
+                for ifd_name in ("Exif", "GPSInfo"):
+                    ifd_id = getattr(ExifTags.IFD, ifd_name, None)
+                    if ifd_id is None:
+                        continue
+                    try:
+                        ifd = exif.get_ifd(ifd_id)
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    names = ExifTags.GPSTAGS if ifd_name == "GPSInfo" else ExifTags.TAGS
+                    for tag, value in ifd.items():
+                        details[f"{ifd_name}:{names.get(tag, tag)}"] = value
+                if img.info.get("xmp"):
+                    details["XMP:RawData"] = img.info["xmp"]
+        except (OSError, ValueError) as error:
+            details["MetadataError"] = str(error)
+        return details, "Pillow (standard EXIF; install ExifTool for DJI XMP)"
+
     def show_image_metadata(self):
         if self.image is None or self.image_path is None:
             return
@@ -741,7 +785,45 @@ class GCPPicker:
             f"Selected pixel: {selected}\n"
             f"Image position: {self.current_index + 1} of {len(self.image_files)}"
         )
-        messagebox.showinfo("Image Metadata", details, parent=self.root)
+        metadata, source = self.extract_image_metadata(self.image_path)
+
+        def display_value(value):
+            if isinstance(value, bytes):
+                return f"<binary data: {len(value)} bytes>"
+            value = str(value)
+            return value if len(value) <= 3000 else value[:3000] + "... [truncated]"
+
+        lines = [details, "", f"METADATA SOURCE: {source}", "", "EXIF / GPS / CAMERA / DJI METADATA"]
+        if metadata:
+            lines.extend(f"{key}: {display_value(value)}" for key, value in sorted(metadata.items()))
+        else:
+            lines.append("No embedded metadata found.")
+        content = "\n".join(lines)
+
+        # A scrollable viewer makes extensive DJI metadata readable and copyable.
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Image Metadata - {self.image_path.name}")
+        dialog.geometry("780x580")
+        dialog.minsize(450, 300)
+        dialog.configure(bg=self.PANEL)
+        dialog.transient(self.root)
+        frame = tk.Frame(dialog, bg=self.PANEL)
+        frame.pack(fill="both", expand=True, padx=12, pady=(12, 6))
+        scroll = ttk.Scrollbar(frame, orient="vertical")
+        text = tk.Text(frame, wrap="word", bg=self.BG, fg=self.TEXT,
+                       font=("Consolas", 10), relief="flat", padx=12, pady=10,
+                       yscrollcommand=scroll.set)
+        scroll.config(command=text.yview)
+        scroll.pack(side="right", fill="y")
+        text.pack(side="left", fill="both", expand=True)
+        text.insert("1.0", content)
+        text.config(state="disabled")
+        buttons = tk.Frame(dialog, bg=self.PANEL)
+        buttons.pack(fill="x", padx=12, pady=(0, 12))
+        self.make_button(buttons, "Copy Metadata", lambda: self.copy_to_clipboard(
+            content, "Image metadata copied to clipboard."), self.PURPLE).pack(side="left")
+        self.make_button(buttons, "Close", dialog.destroy).pack(side="right")
+        dialog.bind("<Escape>", lambda _e: dialog.destroy())
 
     def _shortcut_allowed(self, event):
         return not isinstance(event.widget, (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox))
@@ -1036,7 +1118,7 @@ class GCPPicker:
 
         filename = self.image_path.name
 
-        self.root.title(f"GCPP v{self.APP_VERSION}- {filename}")
+        self.root.title(f"GCPE v{self.APP_VERSION}- {filename}")
         self.filename_label.config(text=filename)
 
         self.info_label.config(
@@ -1754,3 +1836,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
