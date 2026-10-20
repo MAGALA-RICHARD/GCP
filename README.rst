@@ -4,7 +4,7 @@ GCP Pixel Picker
 |version| |license| |windows| |linux| |macos-arm64| |macos-intel|
 
 .. |version| image:: https://img.shields.io/badge/version-0.0.1-brightgreen
-   :alt: Version 0.0.1
+   :alt: Version 0.0.6
 
 .. |license| image:: https://img.shields.io/badge/license-MIT-blue
    :target: https://github.com/MAGALA-RICHARD/GCP/blob/main/LICENSE.txt
