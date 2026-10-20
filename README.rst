@@ -1,5 +1,5 @@
-GCP Pixel Picker
-================
+Ground Control Points Pixel Picker (GCPP)
+===========================================
 
 |version| |license| |windows| |linux| |macos-arm64| |macos-intel|
 
