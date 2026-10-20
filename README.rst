@@ -92,6 +92,23 @@ Mouse wheel         Zoom around the pointer
 Middle-button drag  Pan the image
 ==================  ========================================
 
+Workflow preview
+~~~~~~~~~~~~~~~~
+
+**RGB image example**
+
+.. image:: Images/rgb_image_demo.png
+   :alt: RGB image workflow demonstration in GCP Pixel Picker
+   :align: center
+   :width: 900px
+
+**Multispectral image example**
+
+.. image:: Images/ms_image_demo.png
+   :alt: Multispectral image workflow demonstration in GCP Pixel Picker
+   :align: center
+   :width: 900px
+
 Typical workflow
 ----------------
 
