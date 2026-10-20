@@ -1,14 +1,30 @@
 GCP Pixel Picker
 ================
 
-GCP Pixel Picker is a desktop utility for selecting Ground Control Point (GCP)
-pixel locations from RGB and multispectral imagery and exporting the resulting
-observations to TXT or CSV files.
+|version| |license| |windows| |linux| |macos-arm64| |macos-intel|
 
-The viewer preserves source-image geometry during display operations. Zooming,
-panning, fitting an image to the viewer, and resizing the application affect only
-the display transform; the underlying raster dimensions and stored pixel
-coordinates are not changed.
+.. |version| image:: https://img.shields.io/badge/version-0.0.1-brightgreen
+   :alt: Version 0.0.1
+
+.. |license| image:: https://img.shields.io/badge/license-MIT-blue
+   :target: https://github.com/MAGALA-RICHARD/GCP/blob/main/LICENSE.txt
+   :alt: MIT License
+
+.. |windows| image:: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build_windows.yml/badge.svg
+   :target: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build_windows.yml
+   :alt: Windows Build
+
+.. |linux| image:: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build_linux.yml/badge.svg
+   :target: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build_linux.yml
+   :alt: Linux Build
+
+.. |macos-arm64| image:: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build_macos.yml/badge.svg
+   :target: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build_macos.yml
+   :alt: macOS Apple Silicon Build
+
+.. |macos-intel| image:: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build%20mac%20os%20Intel.yml/badge.svg
+   :target: https://github.com/MAGALA-RICHARD/GCP/actions/workflows/build%20mac%20os%20Intel.yml
+   :alt: macOS Intel Build
 
 Features
 --------
