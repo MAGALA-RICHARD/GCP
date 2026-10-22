@@ -193,6 +193,12 @@ class GCPPicker:
         self.jump_target_index = 0
         self.jump_var = tk.StringVar(value="")
 
+        # Settings: preserve the existing one-record-per-image behavior by default.
+        # skip_interval is the number of images skipped between the current and next/previous image.
+        # 0 = adjacent image, 1 = skip one image, 2 = skip two images, etc.
+        self.record_mode = "single"
+        self.skip_interval = 0
+
         self.x_var = tk.StringVar()
         self.y_var = tk.StringVar()
         self.z_var = tk.StringVar()
@@ -352,9 +358,107 @@ class GCPPicker:
             command=self.export_records_dialog,
         )
         file_menu.add_separator()
+        file_menu.add_command(label="Settings...", command=self.show_settings_dialog)
+        file_menu.add_separator()
         file_menu.add_command(label="Exit App", command=self.root.destroy, accelerator="Ctrl+Q")
         self.file_button.config(menu=file_menu)
         self.file_button.pack(side="left", padx=(10, 4), pady=9)
+
+    def show_settings_dialog(self):
+        """Configure record behavior and Previous/Next image skipping."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Settings")
+        dialog.configure(bg=self.PANEL)
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        record_mode_var = tk.StringVar(value=self.record_mode)
+        skip_var = tk.StringVar(value=str(self.skip_interval))
+
+        tk.Label(
+            dialog, text="RECORDS PER IMAGE", bg=self.PANEL, fg="#93c5fd",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w", padx=22, pady=(20, 8))
+
+        radio_options = dict(
+            bg=self.PANEL, fg=self.TEXT, activebackground=self.PANEL,
+            activeforeground=self.TEXT, selectcolor="#0f172a",
+            font=("Segoe UI", 9), anchor="w",
+        )
+        tk.Radiobutton(
+            dialog, text="One point per image", variable=record_mode_var,
+            value="single", **radio_options,
+        ).pack(fill="x", padx=22, pady=2)
+        tk.Radiobutton(
+            dialog, text="Multiple points per image", variable=record_mode_var,
+            value="multiple", **radio_options,
+        ).pack(fill="x", padx=22, pady=2)
+
+        tk.Label(
+            dialog,
+            text="One-point mode replaces an existing record for the same image.\n"
+                 "Multiple-point mode keeps every point added to that image.",
+            bg=self.PANEL, fg=self.MUTED, justify="left", font=("Segoe UI", 8),
+        ).pack(anchor="w", padx=22, pady=(4, 16))
+
+        tk.Label(
+            dialog, text="Navigation interval", bg=self.PANEL, fg="#93c5fd",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(anchor="w", padx=22, pady=(0, 8))
+
+        skip_row = tk.Frame(dialog, bg=self.PANEL)
+        skip_row.pack(fill="x", padx=22)
+        tk.Label(
+            skip_row, text="Images to skip", bg=self.PANEL, fg=self.TEXT,
+            font=("Segoe UI", 9, "bold"),
+        ).pack(side="left")
+        skip_entry = tk.Spinbox(
+            skip_row, from_=0, to=999999, textvariable=skip_var, width=7,
+            bg="#0f172a", fg=self.TEXT, insertbackground="white",
+            buttonbackground="#374151", relief="solid", bd=1,
+            font=("Segoe UI", 9),
+        )
+        skip_entry.pack(side="right", ipady=3)
+
+        tk.Label(
+            dialog,
+            text="0 = move to the adjacent image; 1 = skip one image; 2 = skip two, etc.",
+            bg=self.PANEL, fg=self.MUTED, justify="left", font=("Segoe UI", 8),
+        ).pack(anchor="w", padx=22, pady=(6, 18))
+
+        buttons = tk.Frame(dialog, bg=self.PANEL)
+        buttons.pack(fill="x", padx=22, pady=(0, 20))
+
+        def apply_settings():
+            try:
+                skip = int(skip_var.get().strip())
+            except ValueError:
+                messagebox.showwarning("Invalid skip interval", "Enter a whole number of 0 or greater.", parent=dialog)
+                return
+            if skip < 0:
+                messagebox.showwarning("Invalid skip interval", "Skip interval cannot be negative.", parent=dialog)
+                return
+
+            self.record_mode = record_mode_var.get()
+            self.skip_interval = skip
+            self.update_navigation_buttons()
+            mode_text = "one point per image" if self.record_mode == "single" else "multiple points per image"
+            self.info_label.config(
+                text=f"Settings updated: {mode_text}; skip interval = {self.skip_interval}.",
+                fg="#34d399",
+            )
+            dialog.destroy()
+
+        self.make_button(buttons, "Cancel", dialog.destroy).pack(side="right")
+        self.make_button(buttons, "Apply", apply_settings, self.BLUE).pack(side="right", padx=(0, 6))
+        skip_entry.bind("<Return>", lambda _e: apply_settings())
+        dialog.bind("<Escape>", lambda _e: dialog.destroy())
+
+        dialog.update_idletasks()
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - dialog.winfo_width()) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{max(x, 0)}+{max(y, 0)}")
 
     def build_ui(self):
         toolbar = tk.Frame(self.root, bg=self.PANEL, height=56)
@@ -1158,10 +1262,14 @@ class GCPPicker:
     # Navigation
     # =========================================================
 
+    def _navigation_step(self):
+        """Return how far Next/Previous moves, including skipped images."""
+        return max(int(self.skip_interval), 1)
+
     def next_image(self):
         if self.loading or not self.image_files or self.current_index >= len(self.image_files) - 1:
             return
-        self.current_index += 1
+        self.current_index = min(self.current_index + self._navigation_step(), len(self.image_files) - 1)
         self.fit_after_load = True
         self.load_image(
             self.image_files[self.current_index],
@@ -1171,7 +1279,7 @@ class GCPPicker:
     def previous_image(self):
         if self.loading or not self.image_files or self.current_index <= 0:
             return
-        self.current_index -= 1
+        self.current_index = max(self.current_index - self._navigation_step(), 0)
         self.fit_after_load = True
         self.load_image(
             self.image_files[self.current_index],
@@ -1352,8 +1460,27 @@ class GCPPicker:
         record = self.current_record()
         if record is None:
             return False
-        suffix, added = add_record(self.records, record)
         filename = record[5]
+        suffix = Path(filename).suffix.lower()
+        group = self.records.setdefault(suffix, [])
+
+        if self.record_mode == "multiple":
+            group.append(record)
+            added = True
+        else:
+            # Preserve the original one-point-per-image behavior. If the user
+            # previously worked in multiple mode, collapse any existing points
+            # for this image back to one record when single mode is used.
+            matching = [i for i, existing in enumerate(group) if existing[5].casefold() == filename.casefold()]
+            if matching:
+                first = matching[0]
+                group[first] = record
+                for i in reversed(matching[1:]):
+                    del group[i]
+                added = False
+            else:
+                group.append(record)
+                added = True
         self.refresh_record_table()
         px, py = self.selected
         action = "Added" if added else "Updated"
@@ -1836,4 +1963,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
