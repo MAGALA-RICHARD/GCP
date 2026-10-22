@@ -153,7 +153,7 @@ class GCPPicker:
     RED = "#dc2626"
     YELLOW = "#fbbf24"
     APP_NAME = "GCPE"
-    APP_VERSION = "0.0.6"
+    APP_VERSION = "0.0.7"
 
     def __init__(self, root):
         self.root = root
